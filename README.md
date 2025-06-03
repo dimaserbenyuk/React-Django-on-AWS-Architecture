@@ -69,3 +69,32 @@ example
 [03/Jun/2025 12:22:05] "GET /admin/login/?next=/admin/auth/ HTTP/1.1" 200 4183
 [03/Jun/2025 12:22:05] "GET /admin/login/?next=/admin/auth/ HTTP/1.1" 200 4183
 ```
+
+```shell
+DJANGO_SETTINGS_MODULE=backend.settings.dev celery -A backend worker --loglevel=info
+```
+ 
+```shell
+ -------------- celery@MacBook-Pro-Dima.local v5.5.3 (immunity)
+--- ***** ----- 
+-- ******* ---- macOS-15.5-arm64-arm-64bit-Mach-O 2025-06-03 13:05:02
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         backend:0x1047e3cb0
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     disabled://
+- *** --- * --- .> concurrency: 8 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> celery           exchange=celery(direct) key=celery
+                
+
+[tasks]
+  . backend.api.tasks.generate_pdf
+
+[2025-06-03 13:05:03,122: INFO/MainProcess] Connected to redis://localhost:6379/0
+[2025-06-03 13:05:03,124: INFO/MainProcess] mingle: searching for neighbors
+[2025-06-03 13:05:04,132: INFO/MainProcess] mingle: all alone
+[2025-06-03 13:05:04,159: INFO/MainProcess] celery@MacBook-Pro-Dima.local ready.
+```

@@ -3,12 +3,18 @@ from .base import *
 DEBUG = True
 ALLOWED_HOSTS = []
 
-# Database
-# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+INSTALLED_APPS += ['backend.api']
+
+# CELERY_BROKER_URL = 'redis://redis:6379/0' #docker
+
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+
+
+LOGLEVEL = os.getenv('LOGLEVEL', 'INFO').upper()

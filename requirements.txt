@@ -1,2 +1,4 @@
+celery==5.5.3
 Django==5.2.1
-
+weasyprint==65.1
+djangorestframework==3.16.0
