@@ -6,6 +6,10 @@ from django.http import FileResponse, Http404
 from django.conf import settings
 import os
 
+import redis
+from django.http import JsonResponse
+from backend.celery import app as celery_app
+
 from .tasks import generate_pdf
 
 
@@ -38,3 +42,29 @@ def download_pdf_view(request, report_id):
         raise Http404("PDF not found")
 
     return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+
+def health_check_view(request):
+    status = {
+        "redis": False,
+        "celery": False,
+    }
+
+    # Проверка Redis
+    try:
+        redis_url = settings.CELERY_BROKER_URL
+        r = redis.Redis.from_url(redis_url)
+        r.ping()
+        status["redis"] = True
+    except Exception as e:
+        status["redis_error"] = str(e)
+
+    # Проверка Celery (отправка задачи ping)
+    try:
+        result = celery_app.send_task("celery.ping")
+        result.get(timeout=5)
+        status["celery"] = True
+    except Exception as e:
+        status["celery_error"] = str(e)
+
+    overall = status["redis"] and status["celery"]
+    return JsonResponse({"ok": overall, **status})

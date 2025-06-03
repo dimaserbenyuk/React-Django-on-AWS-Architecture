@@ -10,13 +10,9 @@ DATABASES = {
     }
 }
 
-INSTALLED_APPS += ['backend.api']
-
-# CELERY_BROKER_URL = 'redis://redis:6379/0' #docker
+INSTALLED_APPS += ['backend.api']  # тут указываем полный путь до приложения
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
-
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/1'
 
-
-LOGLEVEL = os.getenv('LOGLEVEL', 'INFO').upper()
+PDF_OUTPUT_DIR = BASE_DIR / "pdf_output"  # удобно переиспользовать
