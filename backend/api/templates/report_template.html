@@ -1,32 +1,87 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <style>
-        body { font-family: sans-serif; margin: 40px; }
-        h1 { color: #003366; }
+        body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
+        h1, h2 { color: #003366; }
+        p { margin: 5px 0; }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .logo {
+            max-height: 80px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 30px;
         }
+
         th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
         }
+
         th {
             background-color: #003366;
             color: white;
         }
+
+        td:nth-child(2), td:nth-child(3), td:nth-child(4) {
+            text-align: right;
+        }
+
+        .total {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: 50px;
+            font-size: 0.9em;
+            color: #888;
+        }
     </style>
 </head>
 <body>
-    <h1>{{ company }}</h1>
-    <p>{{ address }}</p>
-    <p><strong>Invoice time and date:</strong> {{ date }}</p>
+    <div class="header">
+        <div>
+            <h1>{{ company }}</h1>
+            <p>{{ address }}</p>
+
+            {% if customer.name %}
+            <h2>Customer Info:</h2>
+            <p><strong>Name:</strong> {{ customer.name }}</p>
+            {% if customer.email %}<p><strong>Email:</strong> {{ customer.email }}</p>{% endif %}
+            {% if customer.phone %}<p><strong>Phone:</strong> {{ customer.phone }}</p>{% endif %}
+            {% if customer.address %}<p><strong>Address:</strong> {{ customer.address }}</p>{% endif %}
+            {% endif %}
+
+            <p><strong>Invoice date:</strong> {{ date }}</p>
+        </div>
+        {% if logo_path %}
+        <div>
+            <img src="{{ logo_path }}" class="logo" alt="Logo">
+        </div>
+        {% endif %}
+    </div>
 
     <table>
         <thead>
-            <tr><th>Name</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr>
+            <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Unit Price (PLN)</th>
+                <th>Total (PLN)</th>
+            </tr>
         </thead>
         <tbody>
             {% for item in items %}
@@ -40,6 +95,10 @@
         </tbody>
     </table>
 
-    <p><strong>Gross Total:</strong> {{ total }} PLN</p>
+    <p class="total">Gross Total: {{ total }} PLN</p>
+
+    <div class="footer">
+        Generated automatically — {{ date }}
+    </div>
 </body>
 </html>
