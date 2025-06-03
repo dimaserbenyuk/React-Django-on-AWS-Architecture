@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,6 +26,47 @@ SECRET_KEY = 'django-insecure-1!-h#sr933dc*4ud=g4w_d&*7zw)lpnxvjf4#mo@u6c)g0i6xv
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+import logging.config
+from django.utils.log import DEFAULT_LOGGING
+
+# Отключаем базовую конфигурацию Django
+LOGGING_CONFIG = None
+
+LOGLEVEL = os.getenv('LOGLEVEL', 'INFO').upper()
+
+logging.config.dictConfig({
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+        'django.server': DEFAULT_LOGGING['formatters']['django.server'],
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'default',
+        },
+        'django.server': DEFAULT_LOGGING['handlers']['django.server'],
+    },
+    'loggers': {
+        # Базовый логгер
+        '': {
+            'level': 'WARNING',
+            'handlers': ['console'],
+        },
+        # Наше приложение
+        'app': {
+            'level': LOGLEVEL,
+            'handlers': ['console'],
+            'propagate': False,
+        },
+        # Стандартный логгер сервера Django
+        'django.server': DEFAULT_LOGGING['loggers']['django.server'],
+    },
+})
 
 
 # Application definition
@@ -70,17 +111,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/4.1/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
-
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
 
@@ -116,6 +146,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
