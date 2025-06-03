@@ -5,13 +5,14 @@ from django.urls import reverse
 from .models import Invoice, InvoiceItem, Customer
 from .tasks import generate_pdf
 
-# Inline редактор для InvoiceItem внутри Invoice
+
 class InvoiceItemInline(admin.TabularInline):
     model = InvoiceItem
-    extra = 1  # Показывать пустую строку для удобства
-    min_num = 1  # Обязательно хотя бы один item
+    extra = 1
+    min_num = 1
     verbose_name = "Invoice Item"
     verbose_name_plural = "Invoice Items"
+
 
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
@@ -21,14 +22,23 @@ class InvoiceAdmin(admin.ModelAdmin):
         "company_name",
         "address",
         "created_at",
-        "pdf_updated_at",
-        "pdf_link"
+        "pdf_generated_at",
+        "pdf_size_display",
+        "pdf_link",
     ]
-    readonly_fields = ["pdf_link", "pdf_task_id", "pdf_updated_at"]
+    readonly_fields = [
+        "pdf_link",
+        "pdf_task_id",
+        "pdf_updated_at",
+        "pdf_filename",
+        "pdf_size",
+        "pdf_generated_at",
+        "pdf_filesize",
+    ]
     inlines = [InvoiceItemInline]
     actions = ["generate_pdf_action"]
-    list_filter = ["created_at"]
-    search_fields = ["company_name", "customer__name"]
+    list_filter = ["created_at", "pdf_generated_at"]
+    search_fields = ["company_name", "customer__name", "pdf_filename"]
 
     def customer_name(self, obj):
         return obj.customer.name if obj.customer else "—"
@@ -42,11 +52,17 @@ class InvoiceAdmin(admin.ModelAdmin):
         return format_html('<span style="color:red;">❌ No PDF found</span>')
     pdf_link.short_description = "PDF File"
 
+    def pdf_size_display(self, obj):
+        if obj.pdf_size:
+            return f"{obj.pdf_size / 1024:.2f} KB"
+        return "—"
+    pdf_size_display.short_description = "PDF Size"
+
+    def pdf_filesize(self, obj):
+        return self.pdf_size_display(obj)
+    pdf_filesize.short_description = "PDF Size (readonly)"
+
     def generate_pdf_action(self, request, queryset):
-        """
-        Admin action: Генерирует PDF-файлы для выбранных инвойсов,
-        если у них есть хотя бы один item.
-        """
         started = 0
         for invoice in queryset:
             if invoice.items.exists():

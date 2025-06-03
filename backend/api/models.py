@@ -37,6 +37,16 @@ class Invoice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     pdf_task_id = models.CharField(max_length=100, blank=True, null=True)
     pdf_updated_at = models.DateTimeField(blank=True, null=True)
+    pdf_filename = models.CharField(max_length=255, blank=True, null=True)
+    pdf_size = models.IntegerField(blank=True, null=True)
+    pdf_generated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["customer"]),
+            models.Index(fields=["pdf_generated_at"]),
+        ]
 
     def __str__(self) -> str:
         return f"Invoice #{self.id} - {self.customer or self.company_name}"
@@ -64,9 +74,12 @@ class Invoice(models.Model):
 
     def update_pdf_metadata(self, task_id: str) -> None:
         """Update metadata after Celery task completes."""
+        path = self.get_pdf_path()
         self.pdf_task_id = task_id
-        self.pdf_updated_at = now()
-        self.save(update_fields=["pdf_task_id", "pdf_updated_at"])
+        self.pdf_generated_at = now()
+        self.pdf_filename = os.path.basename(path)
+        self.pdf_size = os.path.getsize(path) if os.path.exists(path) else None
+        self.save(update_fields=["pdf_task_id", "pdf_generated_at", "pdf_filename", "pdf_size"])
 
 
 class InvoiceItem(models.Model):
