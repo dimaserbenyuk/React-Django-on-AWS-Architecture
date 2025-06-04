@@ -1,16 +1,18 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics
+from rest_framework.exceptions import ValidationError
 from celery.result import AsyncResult
-from django.http import FileResponse, Http404
+
+from django.http import FileResponse, Http404, JsonResponse
 from django.conf import settings
+import redis
 import os
 
-import redis
-from django.http import JsonResponse
 from backend.celery import app as celery_app
-
+from .models import Invoice
 from .tasks import generate_pdf
+from .serializers import InvoiceSerializer
 
 
 class GeneratePDFView(APIView):
@@ -20,7 +22,7 @@ class GeneratePDFView(APIView):
             return Response({"error": "Missing report_id"}, status=status.HTTP_400_BAD_REQUEST)
 
         task = generate_pdf.delay(report_id)
-        return Response({"task_id": task.id, "status": "started"})
+        return Response({"task_id": task.id, "status": "started"}, status=status.HTTP_202_ACCEPTED)
 
 
 class PDFStatusView(APIView):
@@ -31,7 +33,7 @@ class PDFStatusView(APIView):
             "status": result.status,
             "result": result.result if result.ready() else None
         }
-        return Response(response)
+        return Response(response, status=status.HTTP_200_OK)
 
 
 def download_pdf_view(request, report_id):
@@ -43,28 +45,43 @@ def download_pdf_view(request, report_id):
 
     return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
 
+
 def health_check_view(request):
-    status = {
+    status_flags = {
         "redis": False,
         "celery": False,
     }
 
-    # Проверка Redis
     try:
         redis_url = settings.CELERY_BROKER_URL
         r = redis.Redis.from_url(redis_url)
         r.ping()
-        status["redis"] = True
+        status_flags["redis"] = True
     except Exception as e:
-        status["redis_error"] = str(e)
+        status_flags["redis_error"] = str(e)
 
-    # Проверка Celery (отправка задачи ping)
     try:
         result = celery_app.send_task("celery.ping")
         result.get(timeout=5)
-        status["celery"] = True
+        status_flags["celery"] = True
     except Exception as e:
-        status["celery_error"] = str(e)
+        status_flags["celery_error"] = str(e)
 
-    overall = status["redis"] and status["celery"]
-    return JsonResponse({"ok": overall, **status})
+    overall = status_flags["redis"] and status_flags["celery"]
+    return JsonResponse({"ok": overall, **status_flags})
+
+
+class InvoiceListCreateView(generics.ListCreateAPIView):
+    queryset = Invoice.objects.all().order_by("-id")
+    serializer_class = InvoiceSerializer
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class InvoiceDetailView(generics.RetrieveAPIView):
+    queryset = Invoice.objects.all()
+    serializer_class = InvoiceSerializer
+    lookup_field = "pk"

@@ -94,7 +94,7 @@ class TaskStatus(models.Model):
         FAILED = "failed", "Failed"
 
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="tasks")
-    task_id = models.CharField(max_length=100, unique=True)
+    task_id = models.CharField(max_length=100)  # убрано unique=True
     heartbeat_at = models.DateTimeField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED)
     started_at = models.DateTimeField(blank=True, null=True)
@@ -111,6 +111,9 @@ class TaskStatus(models.Model):
             models.Index(fields=["created_at"]),
         ]
 
+    def __str__(self):
+        return f"Task {self.task_id} ({self.invoice}) - {self.status}"
+
     def mark_started(self):
         self.status = self.Status.RUNNING
         self.started_at = now()
@@ -119,22 +122,37 @@ class TaskStatus(models.Model):
     def mark_completed(self):
         self.status = self.Status.COMPLETED
         self.finished_at = now()
-        if self.started_at:
-            self.duration_seconds = (self.finished_at - self.started_at).total_seconds()
+        self.duration_seconds = self._calculate_duration()
         self.save(update_fields=["status", "finished_at", "duration_seconds"])
 
     def mark_failed(self, error: str):
         self.status = self.Status.FAILED
         self.finished_at = now()
+        self.duration_seconds = self._calculate_duration()
         self.error_message = error
-        if self.started_at:
-            self.duration_seconds = (self.finished_at - self.started_at).total_seconds()
         self.save(update_fields=["status", "finished_at", "duration_seconds", "error_message"])
 
     def mark_stale(self):
         self.status = self.Status.FAILED
         self.finished_at = now()
+        self.duration_seconds = self._calculate_duration()
         self.error_message = "Task marked as stale (no heartbeat)"
-        if self.started_at:
-            self.duration_seconds = (self.finished_at - self.started_at).total_seconds()
         self.save(update_fields=["status", "finished_at", "duration_seconds", "error_message"])
+
+    def _calculate_duration(self) -> Optional[float]:
+        if self.started_at and self.finished_at:
+            return (self.finished_at - self.started_at).total_seconds()
+        return None
+
+    @classmethod
+    def start_or_update(cls, invoice: Invoice, task_id: str) -> "TaskStatus":
+        obj, _ = cls.objects.update_or_create(
+            task_id=task_id,
+            defaults={
+                "invoice": invoice,
+                "status": cls.Status.QUEUED,
+                "started_at": now(),
+                "heartbeat_at": now(),
+            }
+        )
+        return obj

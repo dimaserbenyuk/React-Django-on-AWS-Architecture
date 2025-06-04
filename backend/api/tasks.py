@@ -22,35 +22,24 @@ def ping() -> str:
 @shared_task(bind=True, name="generate_pdf")
 def generate_pdf(self, report_id: int) -> Dict[str, Any]:
     task_id = self.request.id
+    invoice = None
     task_status = None
 
     try:
-        invoice = (
-            Invoice.objects.select_related("customer")
-            .prefetch_related("items")
-            .get(id=report_id)
-        )
+        invoice = Invoice.objects.select_related("customer").prefetch_related("items").get(id=report_id)
 
-        # Создаём задачу
-        task_status = TaskStatus.objects.create(
-            invoice=invoice,
-            task_id=task_id,
-            status=TaskStatus.Status.RUNNING,
-            started_at=now(),
-            heartbeat_at=now(),
-        )
+        # Создание или обновление статуса
+        task_status = TaskStatus.start_or_update(invoice=invoice, task_id=task_id)
+        task_status.mark_started()
 
         output_dir = getattr(settings, "PDF_OUTPUT_DIR", os.path.join(settings.BASE_DIR, "pdf_output"))
         os.makedirs(output_dir, exist_ok=True)
 
-        pdf_filename = f"report_{report_id}.pdf"
-        pdf_path = os.path.join(output_dir, pdf_filename)
-
+        pdf_path = os.path.join(output_dir, invoice.get_pdf_filename())
         items = []
         total = 0
-        all_items = list(invoice.items.all())
 
-        for idx, item in enumerate(all_items, 1):
+        for idx, item in enumerate(invoice.items.all(), 1):
             item_total = item.total()
             items.append({
                 "name": item.name,
@@ -60,7 +49,8 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             })
             total += item_total
 
-            if idx % 3 == 0 or idx == len(all_items):
+            # Heartbeat каждые 3 итема
+            if idx % 3 == 0 or idx == len(invoice.items.all()):
                 task_status.heartbeat_at = now()
                 task_status.save(update_fields=["heartbeat_at"])
 
@@ -112,7 +102,7 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             task_status.mark_failed(str(e))
         else:
             TaskStatus.objects.create(
-                invoice=invoice if 'invoice' in locals() else None,
+                invoice=invoice if invoice else None,
                 task_id=task_id,
                 status=TaskStatus.Status.FAILED,
                 error_message=str(e),
