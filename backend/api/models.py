@@ -130,3 +130,11 @@ class TaskStatus(models.Model):
         if self.started_at:
             self.duration_seconds = (self.finished_at - self.started_at).total_seconds()
         self.save(update_fields=["status", "finished_at", "duration_seconds", "error_message"])
+
+    def mark_stale(self):
+        self.status = self.Status.FAILED
+        self.finished_at = now()
+        self.error_message = "Task marked as stale (no heartbeat)"
+        if self.started_at:
+            self.duration_seconds = (self.finished_at - self.started_at).total_seconds()
+        self.save(update_fields=["status", "finished_at", "duration_seconds", "error_message"])

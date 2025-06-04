@@ -1,11 +1,14 @@
 import os
 import logging
 from typing import Any, Dict
+from datetime import timedelta
+
 from celery import shared_task
 from django.template.loader import render_to_string
 from weasyprint import HTML
 from django.conf import settings
 from django.utils.timezone import now
+
 from .models import Invoice, TaskStatus
 
 logger = logging.getLogger(__name__)
@@ -16,9 +19,10 @@ def ping() -> str:
     return "pong"
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, name="generate_pdf")
 def generate_pdf(self, report_id: int) -> Dict[str, Any]:
     task_id = self.request.id
+    task_status = None
 
     try:
         invoice = (
@@ -27,12 +31,13 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             .get(id=report_id)
         )
 
-        # Создаём запись о задаче
+        # Создаём задачу
         task_status = TaskStatus.objects.create(
             invoice=invoice,
             task_id=task_id,
-            status="running",
-            started_at=now()
+            status=TaskStatus.Status.RUNNING,
+            started_at=now(),
+            heartbeat_at=now(),
         )
 
         output_dir = getattr(settings, "PDF_OUTPUT_DIR", os.path.join(settings.BASE_DIR, "pdf_output"))
@@ -43,7 +48,9 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
 
         items = []
         total = 0
-        for item in invoice.items.all():
+        all_items = list(invoice.items.all())
+
+        for idx, item in enumerate(all_items, 1):
             item_total = item.total()
             items.append({
                 "name": item.name,
@@ -52,6 +59,10 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
                 "total": float(item_total),
             })
             total += item_total
+
+            if idx % 3 == 0 or idx == len(all_items):
+                task_status.heartbeat_at = now()
+                task_status.save(update_fields=["heartbeat_at"])
 
         logo_path = invoice.logo.path if invoice.logo and invoice.logo.name else None
 
@@ -75,8 +86,6 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
         HTML(string=html, base_url=settings.MEDIA_ROOT).write_pdf(target=pdf_path)
 
         logger.info("✅ PDF сохранён: %s", pdf_path)
-
-        # Обновляем статус задачи
         task_status.mark_completed()
 
         return {
@@ -91,24 +100,42 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
         TaskStatus.objects.create(
             invoice=None,
             task_id=task_id,
-            status="failed",
-            error_message=msg
+            status=TaskStatus.Status.FAILED,
+            error_message=msg,
+            finished_at=now()
         )
         return {"report_id": report_id, "status": "failed", "error": msg}
 
     except Exception as e:
         logger.exception("❌ Ошибка при генерации PDF")
-
-        # Обновим существующий статус, если он был создан
-        try:
+        if task_status:
             task_status.mark_failed(str(e))
-        except Exception:
+        else:
             TaskStatus.objects.create(
-                invoice=invoice,
+                invoice=invoice if 'invoice' in locals() else None,
                 task_id=task_id,
-                status="failed",
+                status=TaskStatus.Status.FAILED,
                 error_message=str(e),
                 finished_at=now()
             )
-
         return {"report_id": report_id, "status": "failed", "error": str(e)}
+
+
+@shared_task(name="check_stuck_tasks")
+def check_stuck_tasks():
+    timeout_minutes = 5
+    threshold = now() - timedelta(minutes=timeout_minutes)
+
+    stuck_tasks = TaskStatus.objects.filter(
+        status=TaskStatus.Status.RUNNING,
+        heartbeat_at__lt=threshold
+    )
+
+    count = 0
+    for task in stuck_tasks:
+        task.mark_stale()
+        logger.warning(f"📛 Marked as stale: {task.task_id}")
+        count += 1
+
+    logger.info(f"✅ check_stuck_tasks finished. {count} stale.")
+    return {"stale_tasks": count}

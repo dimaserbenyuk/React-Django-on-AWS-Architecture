@@ -158,3 +158,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CELERY_BEAT_SCHEDULE = {
+    "check-stuck-tasks-every-15-mins": {
+        "task": "check_stuck_tasks",
+        "schedule": 900.0,  # каждые 15 минут
+    },
+}

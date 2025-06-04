@@ -92,11 +92,12 @@ class CustomerAdmin(admin.ModelAdmin):
 class TaskStatusAdmin(admin.ModelAdmin):
     list_display = [
         "id", "invoice_link", "status", "task_id",
-        "started_at", "finished_at", "duration_seconds", "short_error"
+        "started_at", "finished_at", "heartbeat_at",
+        "duration_seconds", "short_error"
     ]
     list_filter = ["status", "created_at"]
     search_fields = ["task_id", "invoice__company_name", "invoice__customer__name"]
-    readonly_fields = ["error_message"]
+    readonly_fields = ["error_message", "heartbeat_at"]
 
     def invoice_link(self, obj):
         url = reverse("admin:api_invoice_change", args=[obj.invoice.id])
