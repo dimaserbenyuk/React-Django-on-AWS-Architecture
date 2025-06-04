@@ -20,12 +20,6 @@ class Customer(models.Model):
 
 class Invoice(models.Model):
     """Represents an invoice containing customer, items, and optional logo."""
-    class PDFStatus(models.TextChoices):
-        PENDING = "pending", "Pending"
-        GENERATING = "generating", "Generating"
-        COMPLETED = "completed", "Completed"
-        FAILED = "failed", "Failed"
-
     customer = models.ForeignKey(
         Customer,
         on_delete=models.SET_NULL,
@@ -41,19 +35,11 @@ class Invoice(models.Model):
         validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "svg"])]
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    pdf_task_id = models.CharField(max_length=100, blank=True, null=True)
-    pdf_status = models.CharField(max_length=20, choices=PDFStatus.choices, default=PDFStatus.PENDING)
-    pdf_updated_at = models.DateTimeField(blank=True, null=True)
-    pdf_filename = models.CharField(max_length=255, blank=True, null=True)
-    pdf_size = models.IntegerField(blank=True, null=True)
-    pdf_generated_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["created_at"]),
             models.Index(fields=["customer"]),
-            models.Index(fields=["pdf_generated_at"]),
-            models.Index(fields=["pdf_status"]),
         ]
 
     def __str__(self) -> str:
@@ -80,22 +66,6 @@ class Invoice(models.Model):
     pdf_link.short_description = "PDF File"
     pdf_link.allow_tags = True
 
-    def update_pdf_metadata(self, task_id: str, status: str = PDFStatus.COMPLETED) -> None:
-        """Update metadata after Celery task completes."""
-        path = self.get_pdf_path()
-        self.pdf_task_id = task_id
-        self.pdf_generated_at = now()
-        self.pdf_filename = os.path.basename(path)
-        self.pdf_size = os.path.getsize(path) if os.path.exists(path) else None
-        self.pdf_status = status
-        self.save(update_fields=[
-            "pdf_task_id",
-            "pdf_generated_at",
-            "pdf_filename",
-            "pdf_size",
-            "pdf_status"
-        ])
-
 
 class InvoiceItem(models.Model):
     """Represents a single line item in an invoice."""
@@ -113,3 +83,50 @@ class InvoiceItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} x {self.quantity} ({self.invoice})"
+
+
+class TaskStatus(models.Model):
+    """Tracks Celery task status for a given Invoice."""
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="tasks")
+    task_id = models.CharField(max_length=100, unique=True)
+    heartbeat_at = models.DateTimeField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED)
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    duration_seconds = models.FloatField(blank=True, null=True)
+    error_message = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["invoice"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def mark_started(self):
+        self.status = self.Status.RUNNING
+        self.started_at = now()
+        self.save(update_fields=["status", "started_at"])
+
+    def mark_completed(self):
+        self.status = self.Status.COMPLETED
+        self.finished_at = now()
+        if self.started_at:
+            self.duration_seconds = (self.finished_at - self.started_at).total_seconds()
+        self.save(update_fields=["status", "finished_at", "duration_seconds"])
+
+    def mark_failed(self, error: str):
+        self.status = self.Status.FAILED
+        self.finished_at = now()
+        self.error_message = error
+        if self.started_at:
+            self.duration_seconds = (self.finished_at - self.started_at).total_seconds()
+        self.save(update_fields=["status", "finished_at", "duration_seconds", "error_message"])

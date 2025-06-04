@@ -5,7 +5,8 @@ from celery import shared_task
 from django.template.loader import render_to_string
 from weasyprint import HTML
 from django.conf import settings
-from .models import Invoice
+from django.utils.timezone import now
+from .models import Invoice, TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,8 @@ def ping() -> str:
 
 @shared_task(bind=True)
 def generate_pdf(self, report_id: int) -> Dict[str, Any]:
+    task_id = self.request.id
+
     try:
         invoice = (
             Invoice.objects.select_related("customer")
@@ -24,9 +27,13 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             .get(id=report_id)
         )
 
-        # Обновим статус перед началом генерации
-        invoice.pdf_status = Invoice.PDFStatus.GENERATING
-        invoice.save(update_fields=["pdf_status"])
+        # Создаём запись о задаче
+        task_status = TaskStatus.objects.create(
+            invoice=invoice,
+            task_id=task_id,
+            status="running",
+            started_at=now()
+        )
 
         output_dir = getattr(settings, "PDF_OUTPUT_DIR", os.path.join(settings.BASE_DIR, "pdf_output"))
         os.makedirs(output_dir, exist_ok=True)
@@ -68,7 +75,9 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
         HTML(string=html, base_url=settings.MEDIA_ROOT).write_pdf(target=pdf_path)
 
         logger.info("✅ PDF сохранён: %s", pdf_path)
-        invoice.update_pdf_metadata(task_id=self.request.id, status=Invoice.PDFStatus.COMPLETED)
+
+        # Обновляем статус задачи
+        task_status.mark_completed()
 
         return {
             "report_id": report_id,
@@ -79,10 +88,27 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
     except Invoice.DoesNotExist:
         msg = f"❌ Invoice ID {report_id} не найден"
         logger.error(msg)
+        TaskStatus.objects.create(
+            invoice=None,
+            task_id=task_id,
+            status="failed",
+            error_message=msg
+        )
         return {"report_id": report_id, "status": "failed", "error": msg}
 
     except Exception as e:
         logger.exception("❌ Ошибка при генерации PDF")
-        invoice.pdf_status = Invoice.PDFStatus.FAILED
-        invoice.save(update_fields=["pdf_status"])
+
+        # Обновим существующий статус, если он был создан
+        try:
+            task_status.mark_failed(str(e))
+        except Exception:
+            TaskStatus.objects.create(
+                invoice=invoice,
+                task_id=task_id,
+                status="failed",
+                error_message=str(e),
+                finished_at=now()
+            )
+
         return {"report_id": report_id, "status": "failed", "error": str(e)}

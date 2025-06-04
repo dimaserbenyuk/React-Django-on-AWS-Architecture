@@ -2,7 +2,7 @@ import os
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import Invoice, InvoiceItem, Customer
+from .models import Invoice, InvoiceItem, Customer, TaskStatus
 from .tasks import generate_pdf
 
 
@@ -22,23 +22,17 @@ class InvoiceAdmin(admin.ModelAdmin):
         "company_name",
         "address",
         "created_at",
-        "pdf_generated_at",
-        "pdf_size_display",
+        "latest_task_status_badge",
+        "latest_task_duration",
         "pdf_link",
     ]
     readonly_fields = [
         "pdf_link",
-        "pdf_task_id",
-        "pdf_updated_at",
-        "pdf_filename",
-        "pdf_size",
-        "pdf_generated_at",
-        "pdf_filesize",
     ]
     inlines = [InvoiceItemInline]
     actions = ["generate_pdf_action"]
-    list_filter = ["created_at", "pdf_generated_at"]
-    search_fields = ["company_name", "customer__name", "pdf_filename"]
+    list_filter = ["created_at"]
+    search_fields = ["company_name", "customer__name"]
 
     def customer_name(self, obj):
         return obj.customer.name if obj.customer else "—"
@@ -52,25 +46,39 @@ class InvoiceAdmin(admin.ModelAdmin):
         return format_html('<span style="color:red;">❌ No PDF found</span>')
     pdf_link.short_description = "PDF File"
 
-    def pdf_size_display(self, obj):
-        if obj.pdf_size:
-            return f"{obj.pdf_size / 1024:.2f} KB"
-        return "—"
-    pdf_size_display.short_description = "PDF Size"
+    def latest_task_status_badge(self, obj):
+        task = obj.tasks.first()
+        if not task:
+            return format_html('<span style="color:gray;">—</span>')
+        color = {
+            "queued": "gray",
+            "running": "orange",
+            "completed": "green",
+            "failed": "red"
+        }.get(task.status, "black")
+        return format_html(
+            '<span style="color:{}; font-weight:bold;">{}</span>',
+            color,
+            task.status.capitalize()
+        )
+    latest_task_status_badge.short_description = "PDF Status"
 
-    def pdf_filesize(self, obj):
-        return self.pdf_size_display(obj)
-    pdf_filesize.short_description = "PDF Size (readonly)"
+    def latest_task_duration(self, obj):
+        task = obj.tasks.first()
+        if task and task.duration_seconds:
+            return f"{task.duration_seconds:.2f} s"
+        return "—"
+    latest_task_duration.short_description = "Generation Time"
 
     def generate_pdf_action(self, request, queryset):
-        started = 0
+        started = []
         for invoice in queryset:
             if invoice.items.exists():
                 generate_pdf.delay(invoice.id)
-                started += 1
+                started.append(str(invoice.id))
         self.message_user(
             request,
-            f"{started} PDF task(s) started (invoices without items were skipped)."
+            f"{len(started)} PDF task(s) started. Invoices: {', '.join(started)}"
         )
     generate_pdf_action.short_description = "📄 Generate PDF via Celery"
 
@@ -79,3 +87,22 @@ class InvoiceAdmin(admin.ModelAdmin):
 class CustomerAdmin(admin.ModelAdmin):
     list_display = ["name", "email", "phone"]
     search_fields = ["name", "email"]
+
+@admin.register(TaskStatus)
+class TaskStatusAdmin(admin.ModelAdmin):
+    list_display = [
+        "id", "invoice_link", "status", "task_id",
+        "started_at", "finished_at", "duration_seconds", "short_error"
+    ]
+    list_filter = ["status", "created_at"]
+    search_fields = ["task_id", "invoice__company_name", "invoice__customer__name"]
+    readonly_fields = ["error_message"]
+
+    def invoice_link(self, obj):
+        url = reverse("admin:api_invoice_change", args=[obj.invoice.id])
+        return format_html('<a href="{}">Invoice #{}</a>', url, obj.invoice.id)
+    invoice_link.short_description = "Invoice"
+
+    def short_error(self, obj):
+        return (obj.error_message[:75] + "...") if obj.error_message else "—"
+    short_error.short_description = "Error"
