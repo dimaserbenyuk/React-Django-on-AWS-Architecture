@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-1!-h#sr933dc*4ud=g4w_d&*7zw)lpnxvjf4#mo@u6c)g0i6xv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["http://localhost:3000"]
+ALLOWED_HOSTS = ["http://localhost:3000","http://localhost:5173/"]
 
 import logging.config
 from django.utils.log import DEFAULT_LOGGING
@@ -95,7 +95,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    "http://localhost:3000","http://localhost:5173"
 ]
 
 ROOT_URLCONF = 'backend.urls'
