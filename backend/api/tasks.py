@@ -24,6 +24,10 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             .get(id=report_id)
         )
 
+        # Обновим статус перед началом генерации
+        invoice.pdf_status = Invoice.PDFStatus.GENERATING
+        invoice.save(update_fields=["pdf_status"])
+
         output_dir = getattr(settings, "PDF_OUTPUT_DIR", os.path.join(settings.BASE_DIR, "pdf_output"))
         os.makedirs(output_dir, exist_ok=True)
 
@@ -64,7 +68,7 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
         HTML(string=html, base_url=settings.MEDIA_ROOT).write_pdf(target=pdf_path)
 
         logger.info("✅ PDF сохранён: %s", pdf_path)
-        invoice.update_pdf_metadata(task_id=self.request.id)
+        invoice.update_pdf_metadata(task_id=self.request.id, status=Invoice.PDFStatus.COMPLETED)
 
         return {
             "report_id": report_id,
@@ -79,4 +83,6 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
 
     except Exception as e:
         logger.exception("❌ Ошибка при генерации PDF")
+        invoice.pdf_status = Invoice.PDFStatus.FAILED
+        invoice.save(update_fields=["pdf_status"])
         return {"report_id": report_id, "status": "failed", "error": str(e)}
