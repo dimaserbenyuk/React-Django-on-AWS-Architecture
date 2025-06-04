@@ -1,46 +1,48 @@
-const BASE_URL = process.env.REACT_APP_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 async function handleResponse(res) {
+  const contentType = res.headers.get("content-type");
+  const isJSON = contentType && contentType.includes("application/json");
+  const data = isJSON ? await res.json().catch(() => null) : null;
+
   if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error?.error || `HTTP ${res.status}`);
+    const message = data?.error || `HTTP ${res.status}`;
+    throw new Error(message);
   }
-  return res.json();
+
+  return data;
 }
 
-export async function createInvoice(payload) {
-  const res = await fetch(`${BASE_URL}/invoices/`, {
+async function request(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json", ...options.headers },
+    ...options,
+  });
+  return handleResponse(res);
+}
+
+// API Methods
+export const createInvoice = (payload) =>
+  request(`${BASE_URL}/invoices/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return handleResponse(res);
-}
 
-export async function generatePDF(reportId) {
-  const res = await fetch(`${BASE_URL}/generate-pdf/`, {
+export const generatePDF = (reportId) =>
+  request(`${BASE_URL}/generate-pdf/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ report_id: reportId }),
   });
-  return handleResponse(res);
-}
 
-export async function checkStatus(taskId) {
-  const res = await fetch(`${BASE_URL}/pdf-status/${taskId}/`);
-  return handleResponse(res);
-}
+export const checkStatus = (taskId) =>
+  request(`${BASE_URL}/pdf-status/${taskId}/`);
 
-export async function getInvoice(id) {
-  const res = await fetch(`${BASE_URL}/invoices/${id}/`);
-  return handleResponse(res);
-}
+export const getInvoice = (id) =>
+  request(`${BASE_URL}/invoices/${id}/`);
 
-export async function listInvoices() {
-  const res = await fetch(`${BASE_URL}/invoices/`);
-  return handleResponse(res);
-}
+export const listInvoices = () =>
+  request(`${BASE_URL}/invoices/`);
 
-export function downloadPDF(reportId) {
-  window.open(`${BASE_URL}/download-pdf/${reportId}/`, "_blank");
-}
+export const downloadPDF = (reportId) => {
+  window.open(`${BASE_URL}/download-pdf/${reportId}/`, "_blank", "noopener,noreferrer");
+};

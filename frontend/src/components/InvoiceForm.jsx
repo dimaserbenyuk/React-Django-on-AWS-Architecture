@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { createInvoice, generatePDF } from "../api/api";
 import toast from "react-hot-toast";
 
@@ -12,26 +12,27 @@ function InvoiceForm({ onPDFGenerated }) {
     customer_address: "",
     items: [{ name: "", quantity: 1, unit_price: 0 }],
   });
-
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
-  const handleItemChange = (index, field, value) => {
-    const updated = [...form.items];
-    updated[index][field] = value;
-    setForm((prev) => ({ ...prev, items: updated }));
-  };
+  const handleItemChange = useCallback((index, field, value) => {
+    setForm((prev) => {
+      const items = [...prev.items];
+      items[index][field] = value;
+      return { ...prev, items };
+    });
+  }, []);
 
-  const addItem = () => {
+  const addItem = useCallback(() => {
     setForm((prev) => ({
       ...prev,
       items: [...prev.items, { name: "", quantity: 1, unit_price: 0 }],
     }));
-  };
+  }, []);
 
   const resetForm = () => {
     setForm({
@@ -79,10 +80,10 @@ function InvoiceForm({ onPDFGenerated }) {
   return (
     <>
       <header className="mt-12 mb-8 text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-800">
+        <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
           🧾 Invoice PDF Generator
         </h1>
-        <p className="text-gray-500 mt-2">Create invoice and download PDF</p>
+        <p className="text-gray-500 text-sm">Create invoice and download PDF</p>
       </header>
 
       <form
@@ -90,8 +91,8 @@ function InvoiceForm({ onPDFGenerated }) {
         className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-lg space-y-6"
       >
         {/* Company Info */}
-        <section className="space-y-2">
-          <h2 className="text-xl font-semibold">🏢 Company Info</h2>
+        <section aria-labelledby="company-info" className="space-y-2">
+          <h2 id="company-info" className="text-lg font-semibold">🏢 Company Info</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input name="company_name" value={form.company_name} onChange={handleChange} placeholder="Company Name" required className="input" />
             <input name="address" value={form.address} onChange={handleChange} placeholder="Company Address" required className="input" />
@@ -99,27 +100,51 @@ function InvoiceForm({ onPDFGenerated }) {
         </section>
 
         {/* Customer Info */}
-        <section className="space-y-2">
-          <h2 className="text-xl font-semibold">👤 Customer Info</h2>
+        <section aria-labelledby="customer-info" className="space-y-2">
+          <h2 id="customer-info" className="text-lg font-semibold">👤 Customer Info</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input name="customer_name" value={form.customer_name} onChange={handleChange} placeholder="Name" required className="input" />
-            <input name="customer_email" value={form.customer_email} onChange={handleChange} placeholder="Email" className="input" />
+            <input name="customer_email" type="email" value={form.customer_email} onChange={handleChange} placeholder="Email" className="input" />
             <input name="customer_phone" value={form.customer_phone} onChange={handleChange} placeholder="Phone" className="input" />
             <input name="customer_address" value={form.customer_address} onChange={handleChange} placeholder="Address" className="input" />
           </div>
         </section>
 
         {/* Items */}
-        <section className="space-y-2">
-          <h2 className="text-xl font-semibold">📦 Items</h2>
+        <section aria-labelledby="items-section" className="space-y-2">
+          <h2 id="items-section" className="text-lg font-semibold">📦 Items</h2>
           {form.items.map((item, idx) => (
             <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input value={item.name} onChange={(e) => handleItemChange(idx, "name", e.target.value)} placeholder="Item name" required className="input" />
-              <input type="number" value={item.quantity} onChange={(e) => handleItemChange(idx, "quantity", e.target.value)} min="1" required className="input" />
-              <input type="number" value={item.unit_price} onChange={(e) => handleItemChange(idx, "unit_price", e.target.value)} min="0" required className="input" />
+              <input
+                value={item.name}
+                onChange={(e) => handleItemChange(idx, "name", e.target.value)}
+                placeholder="Item name"
+                required
+                className="input"
+              />
+              <input
+                type="number"
+                value={item.quantity}
+                onChange={(e) => handleItemChange(idx, "quantity", parseInt(e.target.value))}
+                min="1"
+                required
+                className="input"
+              />
+              <input
+                type="number"
+                value={item.unit_price}
+                onChange={(e) => handleItemChange(idx, "unit_price", parseFloat(e.target.value))}
+                min="0"
+                required
+                className="input"
+              />
             </div>
           ))}
-          <button type="button" onClick={addItem} className="text-sm text-blue-600 hover:underline">
+          <button
+            type="button"
+            onClick={addItem}
+            className="text-sm text-blue-600 hover:underline"
+          >
             ➕ Add Item
           </button>
         </section>
@@ -141,4 +166,4 @@ function InvoiceForm({ onPDFGenerated }) {
   );
 }
 
-export default InvoiceForm;
+export default React.memo(InvoiceForm);

@@ -196,3 +196,4 @@ staticfiles
 node_modules
 package-lock.json
 pdf_output
+.env.production
