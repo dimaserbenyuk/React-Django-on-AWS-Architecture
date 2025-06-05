@@ -10,10 +10,29 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 import os
+import environ
 from pathlib import Path
+
+env = environ.Env()
+
+# ❌ Ошибочно: всегда будет dev, если переменная не передана
+# ENV = os.getenv('DJANGO_ENV', 'dev')
+
+# ✅ Правильно: читаем DJANGO_ENV из .env или переменной среды
+DJANGO_ENV = env('DJANGO_ENV', default='dev')
+
+ENV_FILE = Path(__file__).resolve().parent.parent / f".env.{DJANGO_ENV}"
+if not os.getenv("ENV_LOADED"):
+    print(f"📄 Using environment file: {ENV_FILE}")
+    os.environ["ENV_LOADED"] = "1"
+    
+
+environ.Env.read_env(ENV_FILE)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+USE_S3 = os.getenv('USE_S3', 'FALSE').upper() == 'TRUE'
 
 
 # Quick-start development settings - unsuitable for production
@@ -78,6 +97,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'backend.api',
     'rest_framework',
     'django_celery_beat',
     'corsheaders',

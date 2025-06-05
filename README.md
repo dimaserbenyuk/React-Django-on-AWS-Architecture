@@ -98,3 +98,17 @@ DJANGO_SETTINGS_MODULE=backend.settings.dev celery -A backend worker --loglevel=
 [2025-06-03 13:05:04,132: INFO/MainProcess] mingle: all alone
 [2025-06-03 13:05:04,159: INFO/MainProcess] celery@MacBook-Pro-Dima.local ready.
 ```
+
+Postgres
+
+```shell
+curl http://127.0.0.1:8000/api/db-status/ | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   182  100   182    0     0   5762      0 --:--:-- --:--:-- --:--:--  5870
+{
+  "ok": true,
+  "postgres_version": "PostgreSQL 17.5 (Debian 17.5-1.pgdg120+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit",
+  "active_connections": 1
+}
+```

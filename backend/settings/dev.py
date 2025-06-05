@@ -10,7 +10,7 @@ DATABASES = {
     }
 }
 
-INSTALLED_APPS += ['backend.api']  # тут указываем полный путь до приложения
+# INSTALLED_APPS += ['backend.api']  # тут указываем полный путь до приложения
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/1'

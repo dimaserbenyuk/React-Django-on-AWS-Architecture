@@ -6,6 +6,7 @@ from celery.result import AsyncResult
 
 from django.http import FileResponse, Http404, JsonResponse
 from django.conf import settings
+from django.db import connection
 import redis
 import os
 
@@ -71,6 +72,28 @@ def health_check_view(request):
     return JsonResponse({"ok": overall, **status_flags})
 
 
+def db_status_view(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT version();")
+            version = cursor.fetchone()[0]
+
+            cursor.execute("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database();")
+            active_conn = cursor.fetchone()[0]
+
+        return JsonResponse({
+            "ok": True,
+            "postgres_version": version,
+            "active_connections": active_conn
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "ok": False,
+            "error": str(e)
+        }, status=500)
+
+
 class InvoiceListCreateView(generics.ListCreateAPIView):
     queryset = Invoice.objects.all().order_by("-id")
     serializer_class = InvoiceSerializer
@@ -80,6 +103,7 @@ class InvoiceListCreateView(generics.ListCreateAPIView):
             return super().create(request, *args, **kwargs)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class InvoiceDetailView(generics.RetrieveAPIView):
     queryset = Invoice.objects.all()
