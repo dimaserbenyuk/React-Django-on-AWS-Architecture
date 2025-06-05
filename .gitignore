@@ -200,3 +200,4 @@ pdf_output
 .env.prod
 terraform.tfstate
 .terraform
+terraform.tfstate.backup

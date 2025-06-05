@@ -40,20 +40,36 @@ resource "aws_s3_bucket_policy" "django-invoice" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid       = "AllowSSLRequestsOnly"
-        Effect    = "Deny"
+        Sid       = "AllowS3Access"
+        Effect    = "Allow"
         Principal = "*"
-        Action    = "s3:*"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
         Resource = [
           "${aws_s3_bucket.django-invoice.arn}",
-          "${aws_s3_bucket.django-invoice.arn}/*"
+          "${aws_s3_bucket.django-invoice.arn}/static/*"
         ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
       }
     ]
   })
+}
+
+
+resource "aws_s3_bucket_cors_configuration" "django_invoice_cors" {
+  bucket = aws_s3_bucket.django-invoice.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "POST", "PUT", "HEAD"]
+    allowed_origins = [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://127.0.0.1:8000"
+    ]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
 }

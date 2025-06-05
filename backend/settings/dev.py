@@ -15,4 +15,4 @@ DATABASES = {
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/1'
 
-PDF_OUTPUT_DIR = BASE_DIR / "pdf_output"  # удобно переиспользовать
+PDF_OUTPUT_DIR = BASE_DIR / "pdf_output"
