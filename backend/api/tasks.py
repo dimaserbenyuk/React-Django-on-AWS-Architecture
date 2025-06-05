@@ -1,4 +1,5 @@
 import os
+import io
 import logging
 from typing import Any, Dict
 from datetime import timedelta
@@ -8,8 +9,10 @@ from django.template.loader import render_to_string
 from weasyprint import HTML
 from django.conf import settings
 from django.utils.timezone import now
+from django.core.files.base import ContentFile
 
 from .models import Invoice, TaskStatus
+from backend.storage_backends import PDFStorage
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +29,16 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
     task_status = None
 
     try:
-        invoice = Invoice.objects.select_related("customer").prefetch_related("items").get(id=report_id)
+        invoice = (
+            Invoice.objects.select_related("customer")
+            .prefetch_related("items")
+            .get(id=report_id)
+        )
 
-        # Создание или обновление статуса
         task_status = TaskStatus.start_or_update(invoice=invoice, task_id=task_id)
         task_status.mark_started()
 
-        output_dir = getattr(settings, "PDF_OUTPUT_DIR", os.path.join(settings.BASE_DIR, "pdf_output"))
-        os.makedirs(output_dir, exist_ok=True)
-
-        pdf_path = os.path.join(output_dir, invoice.get_pdf_filename())
+        filename = invoice.get_pdf_filename()
         items = []
         total = 0
 
@@ -49,12 +52,11 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             })
             total += item_total
 
-            # Heartbeat каждые 3 итема
             if idx % 3 == 0 or idx == len(invoice.items.all()):
                 task_status.heartbeat_at = now()
                 task_status.save(update_fields=["heartbeat_at"])
 
-        logo_path = invoice.logo.path if invoice.logo and invoice.logo.name else None
+        logo_path = invoice.logo.url if invoice.logo and invoice.logo.name else None
 
         context = {
             "invoice_id": invoice.id,
@@ -72,15 +74,37 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             "logo_path": logo_path,
         }
 
+        # Генерация PDF
+        pdf_buffer = io.BytesIO()
         html = render_to_string("report_template.html", context)
-        HTML(string=html, base_url=settings.MEDIA_ROOT).write_pdf(target=pdf_path)
+        HTML(string=html).write_pdf(target=pdf_buffer)
+        pdf_buffer.seek(0)
 
-        logger.info("✅ PDF сохранён: %s", pdf_path)
+        pdf_url = None
+
+        if getattr(settings, "USE_S3", False):
+            # Сохранение в S3
+            storage = PDFStorage()
+            storage.save(filename, ContentFile(pdf_buffer.read()))
+            pdf_url = f"https://{storage.bucket_name}.s3.amazonaws.com/{storage.location}/{filename}"
+            invoice.pdf_url = pdf_url
+            invoice.save(update_fields=["pdf_url"])
+            pdf_path = f"s3://{storage.bucket_name}/{storage.location}/{filename}"
+            logger.info("✅ PDF сохранён в S3: %s", pdf_path)
+        else:
+            # Сохранение локально
+            output_dir = getattr(settings, "PDF_OUTPUT_DIR", os.path.join(settings.BASE_DIR, "pdf_output"))
+            os.makedirs(output_dir, exist_ok=True)
+            pdf_path = os.path.join(output_dir, filename)
+            with open(pdf_path, "wb") as f:
+                f.write(pdf_buffer.read())
+            logger.info("✅ PDF сохранён локально: %s", pdf_path)
+
         task_status.mark_completed()
 
         return {
             "report_id": report_id,
-            "pdf_path": str(pdf_path),
+            "pdf_path": pdf_url or str(pdf_path),
             "status": "completed",
         }
 

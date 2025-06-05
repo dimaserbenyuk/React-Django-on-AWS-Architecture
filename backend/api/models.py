@@ -5,6 +5,7 @@ from django.db import models
 from django.utils.html import format_html
 from django.utils.timezone import now
 from django.core.validators import FileExtensionValidator
+from backend.storage_backends import LogoStorage
 
 
 class Customer(models.Model):
@@ -29,12 +30,14 @@ class Invoice(models.Model):
     company_name = models.CharField(max_length=100)
     address = models.CharField(max_length=200)
     logo = models.ImageField(
-        upload_to='logos/',
+        upload_to='',
+        storage=LogoStorage(),
         null=True,
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "svg"])]
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    pdf_url = models.URLField(null=True, blank=True)  # ссылка на PDF (S3)
 
     class Meta:
         indexes = [
@@ -52,15 +55,22 @@ class Invoice(models.Model):
         return os.path.join(settings.PDF_OUTPUT_DIR, self.get_pdf_filename())
 
     def get_pdf_url(self) -> str:
+        if getattr(settings, "USE_S3", False) and self.pdf_url:
+            return self.pdf_url
         return f"/api/download-pdf/{self.id}/"
 
     def pdf_link(self) -> str:
-        pdf_file = self.get_pdf_path()
-        if os.path.exists(pdf_file):
-            return format_html(
-                '<a href="{}" target="_blank">📄 View PDF</a>',
-                self.get_pdf_url()
-            )
+        url = self.get_pdf_url()
+
+        if getattr(settings, "USE_S3", False):
+            # В продакшене — показываем ссылку, если есть
+            if self.pdf_url:
+                return format_html('<a href="{}" target="_blank">📄 View PDF</a>', url)
+            return format_html('<span style="color:red;">❌ No PDF uploaded</span>')
+
+        # В деве — проверяем локально
+        if os.path.exists(self.get_pdf_path()):
+            return format_html('<a href="{}" target="_blank">📄 View PDF</a>', url)
         return format_html('<span style="color:red;">❌ No PDF found</span>')
 
     pdf_link.short_description = "PDF File"
@@ -94,7 +104,7 @@ class TaskStatus(models.Model):
         FAILED = "failed", "Failed"
 
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="tasks")
-    task_id = models.CharField(max_length=100)  # убрано unique=True
+    task_id = models.CharField(max_length=100)
     heartbeat_at = models.DateTimeField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED)
     started_at = models.DateTimeField(blank=True, null=True)

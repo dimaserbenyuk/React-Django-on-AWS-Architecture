@@ -9,10 +9,10 @@ resource "aws_s3_bucket" "django-invoice" {
 resource "aws_s3_bucket_public_access_block" "django-invoice" {
   bucket = aws_s3_bucket.django-invoice.id
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
 }
 
 resource "aws_s3_bucket_ownership_controls" "django-invoice" {
@@ -40,18 +40,11 @@ resource "aws_s3_bucket_policy" "django-invoice" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid       = "AllowS3Access"
+        Sid       = "AllowPublicReadForStaticAssets"
         Effect    = "Allow"
         Principal = "*"
-        Action = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "${aws_s3_bucket.django-invoice.arn}",
-          "${aws_s3_bucket.django-invoice.arn}/static/*"
-        ]
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.django-invoice.arn}/static/*"
       }
     ]
   })

@@ -193,33 +193,48 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 900.0,  # каждые 15 минут
     },
 }
-USE_S3 = os.getenv('USE_S3') == 'TRUE'
+
+USE_S3 = os.getenv('USE_S3', 'FALSE').upper() == 'TRUE'
 
 if USE_S3:
     AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
-
-    # Set the static and media files locations
-    AWS_S3_FILE_OVERWRITE = False
-    AWS_DEFAULT_ACL = None
-    AWS_QUERYSTRING_AUTH = False
     AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 
-    STATICFILES_LOCATION = "static"
-    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATICFILES_LOCATION}/"
-
-    MEDIAFILES_LOCATION = "media"
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIAFILES_LOCATION}/"
-
-    STORAGES = {
-        "default": {"BACKEND": "backend.storage_backends.MediaStorage"},
-        "staticfiles": {"BACKEND": "backend.storage_backends.StaticStorage"},
-    }
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = False
     AWS_S3_OBJECT_PARAMETERS = {
         "CacheControl": "max-age=2592000",
     }
+
+    # ⬇️ ВАЖНО: определяем переменные, которые используются в storage_backends
+    STATICFILES_LOCATION = "static"
+    MEDIAFILES_LOCATION = "media"
+    LOGOFILES_LOCATION = "invoices/logos"
+    PDFFILES_LOCATION = "invoices/pdfs"
+
+    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATICFILES_LOCATION}/"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{MEDIAFILES_LOCATION}/"
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "backend.storage_backends.MediaStorage"
+        },
+        "staticfiles": {
+            "BACKEND": "backend.storage_backends.StaticStorage"
+        },
+    }
+
 else:
     STATIC_URL = '/static/'
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# PDF локально в dev
+PDF_OUTPUT_DIR = BASE_DIR / "pdf_output"
+
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

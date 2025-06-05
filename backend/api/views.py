@@ -15,6 +15,9 @@ from .models import Invoice
 from .tasks import generate_pdf
 from .serializers import InvoiceSerializer
 
+from backend.storage_backends import PDFStorage
+from django.http import HttpResponseRedirect
+
 
 class GeneratePDFView(APIView):
     def post(self, request):
@@ -38,12 +41,20 @@ class PDFStatusView(APIView):
 
 
 def download_pdf_view(request, report_id):
-    output_dir = getattr(settings, "PDF_OUTPUT_DIR", "/tmp")
-    pdf_path = os.path.join(output_dir, f"report_{report_id}.pdf")
+    filename = f"report_{report_id}.pdf"
 
+    if getattr(settings, "USE_S3", False):
+        storage = PDFStorage()
+        if not storage.exists(filename):
+            raise Http404("PDF not found in S3")
+        url = storage.url(filename)
+        return HttpResponseRedirect(url)
+
+    # local
+    output_dir = getattr(settings, "PDF_OUTPUT_DIR", "/tmp")
+    pdf_path = os.path.join(output_dir, filename)
     if not os.path.exists(pdf_path):
         raise Http404("PDF not found")
-
     return FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
 
 
