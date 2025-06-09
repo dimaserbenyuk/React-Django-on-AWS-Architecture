@@ -22,6 +22,9 @@ if [[ "$DJANGO_DB_ENGINE" == "sqlite3" ]]; then
     fi
 fi
 
+echo "🧩 Applying Django migrations..."
+python manage.py migrate
+
 echo "🔐 Creating superuser if not exists..."
 python << END
 import os
