@@ -29,7 +29,8 @@ COPY backend/ backend/
 RUN groupadd -g 1000 appgroup && \
     useradd -r -u 1000 -g appgroup appuser
 
-RUN mkdir -p /usr/src/app && chown -R 1000:1000 /usr/src/app
+RUN mkdir -p /usr/src/app/.cache/fontconfig && \
+    chown -R 1000:1000 /usr/src/app
 
 USER appuser
 
@@ -37,6 +38,7 @@ EXPOSE 8000
 
 ENV DJANGO_SETTINGS_MODULE=backend.settings.dev
 ENV DJANGO_ENV=dev
+ENV XDG_CACHE_HOME=/usr/src/app/.cache
 
 # CMD [ "sleep","30000" ]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

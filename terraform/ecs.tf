@@ -22,8 +22,8 @@ resource "aws_ecs_task_definition" "celery_worker" {
       essential = true
       command   = ["python", "manage.py", "runserver"]
       environment = [
-        { name = "DJANGO_ENV", value = "prod" },
-        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.prod" }
+        { name = "DJANGO_ENV", value = "dev" },
+        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
       ]
       logConfiguration = {
         logDriver = "awslogs",
