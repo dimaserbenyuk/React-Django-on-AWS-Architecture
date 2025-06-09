@@ -10,24 +10,33 @@ RUN apt-get update && apt-get install -y \
     libcairo2 libpango-1.0-0 libpangocairo-1.0-0 \
     libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info \
     libxml2 libxslt1.1 libjpeg-dev libpq-dev \
-    libglib2.0-0 libgobject-2.0-dev fonts-liberation \
+    libglib2.0-0 fonts-liberation \
  && rm -rf /var/lib/apt/lists/*
 
 
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+
+RUN python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip && \
+    /opt/venv/bin/pip install -r requirements.txt
+
+# Обновляем PATH
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY manage.py .
 COPY backend/ backend/
 
 RUN groupadd -g 1000 appgroup && \
     useradd -r -u 1000 -g appgroup appuser
-USER 1000:1000
+
+RUN mkdir -p /usr/src/app && chown -R 1000:1000 /usr/src/app
+
+USER appuser
 
 EXPOSE 8000
 
-ENV DJANGO_SETTINGS_MODULE=backend.settings.prod
-ENV DJANGO_ENV=prod
+ENV DJANGO_SETTINGS_MODULE=backend.settings.dev
+ENV DJANGO_ENV=dev
 
 # CMD [ "sleep","30000" ]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

@@ -11,3 +11,4 @@ __pycache__
 docker-compose.yml
 LICENSE
 README.md
+backend/db.sqlite3
