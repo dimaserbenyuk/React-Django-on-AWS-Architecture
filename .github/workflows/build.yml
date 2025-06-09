@@ -8,10 +8,10 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: django-backend
+  ECR_REPOSITORY_NGINX: django-nginx
   IMAGE_TAG: latest
   REGISTRY: 272509770066.dkr.ecr.us-east-1.amazonaws.com
-  DJANGO_IMAGE: 272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend
-  NGINX_IMAGE: 272509770066.dkr.ecr.us-east-1.amazonaws.com/django-nginx
+  REGISTRY_IMAGE: 272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend
 
 jobs:
   build:
@@ -126,11 +126,6 @@ jobs:
 
   nginx:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [linux/amd64, linux/arm64]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -143,35 +138,21 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-
-      - name: Docker meta (NGINX)
-        id: nginx_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.NGINX_IMAGE }}
-          tags: |
-            type=raw,value=latest
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Set image URI
+        id: vars
+        run: echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NGINX }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push NGINX image
-        id: nginx_build
-        uses: docker/build-push-action@v6
+      - name: Build and push to ECR
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./nginx/Dockerfile
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64
           push: true
-          tags: ${{ env.NGINX_IMAGE }}
-          labels: ${{ steps.nginx_meta.outputs.labels }}
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          tags: ${{ env.IMAGE_URI }}
