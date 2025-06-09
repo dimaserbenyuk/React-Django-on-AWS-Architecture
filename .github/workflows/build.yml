@@ -40,7 +40,7 @@ jobs:
       - name: Build and push to ECR
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: .
           platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE_URI }}

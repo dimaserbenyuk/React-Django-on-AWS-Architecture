@@ -1,0 +1,13 @@
+.git
+.github
+frontend
+terraform
+config
+venv
+__pycache__
+*.pyc
+.DS_Store
+.dockerignore
+docker-compose.yml
+LICENSE
+README.md
