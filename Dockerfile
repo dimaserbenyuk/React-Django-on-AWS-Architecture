@@ -20,7 +20,6 @@ RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
     /opt/venv/bin/pip install -r requirements.txt
 
-# Обновляем PATH
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY manage.py .

@@ -1,3 +1,4 @@
+import django
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, generics
@@ -17,6 +18,11 @@ from .serializers import InvoiceSerializer
 
 from backend.storage_backends import PDFStorage
 from django.http import HttpResponseRedirect
+
+from datetime import datetime, timezone
+import socket
+
+CONTAINER_START_TIME = datetime.now(timezone.utc).isoformat()
 
 
 class GeneratePDFView(APIView):
@@ -120,3 +126,19 @@ class InvoiceDetailView(generics.RetrieveAPIView):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
     lookup_field = "pk"
+
+def index(request):
+    data = {
+        "status": "✅ Django app is running",
+        "env": os.getenv("DJANGO_ENV", "unknown"),
+        "settings": os.getenv("DJANGO_SETTINGS_MODULE", "unset"),
+        "hostname": socket.gethostname(),
+        "django_version": django.get_version(),
+        "database_engine": get_db_engine(),
+        "started_at": CONTAINER_START_TIME,
+    }
+    return JsonResponse(data)
+
+def get_db_engine():
+    from django.conf import settings
+    return settings.DATABASES["default"]["ENGINE"].split(".")[-1]  # eg. 'sqlite3' or 'postgresql'
