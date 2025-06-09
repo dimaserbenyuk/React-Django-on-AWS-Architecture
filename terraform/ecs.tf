@@ -24,7 +24,7 @@ resource "aws_ecs_task_definition" "celery_worker" {
       image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
       essential    = true
       command      = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-      portMappings = [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }]
+      portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
@@ -43,23 +43,23 @@ resource "aws_ecs_task_definition" "celery_worker" {
           awslogs-stream-prefix = "django"
         }
       }
+    },
+    {
+      name         = "nginx"
+      image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-nginx:latest"
+      essential    = true
+      cpu          = 10
+      memory       = 128
+      portMappings = [{ containerPort = 80, protocol = "tcp" }]
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          awslogs-group         = "/ecs/nginx",
+          awslogs-region        = "us-east-1",
+          awslogs-stream-prefix = "nginx"
+        }
+      }
     }
-    # {
-    #   name         = "nginx"
-    #   image        = "efe"
-    #   essential    = true
-    #   cpu          = 10
-    #   memory       = 128
-    #   portMappings = [{ containerPort = 80, protocol = "tcp" }]
-    #   logConfiguration = {
-    #     logDriver = "awslogs",
-    #     options = {
-    #       awslogs-group         = "/ecs/nginx",
-    #       awslogs-region        = "us-east-1",
-    #       awslogs-stream-prefix = "nginx"
-    #     }
-    #   }
-    # }
   ])
   tags = {
     environment = "development"
@@ -101,11 +101,11 @@ resource "aws_ecs_service" "django_service" {
     assign_public_ip = true
     security_groups  = [aws_security_group.celery_sg.id]
   }
-  load_balancer {
-    target_group_arn = aws_alb_target_group.nginx_tg.arn
-    container_name   = "nginx"
-    container_port   = 80
-  }
+  # load_balancer {
+  #   target_group_arn = aws_alb_target_group.nginx_tg.arn
+  #   container_name   = "nginx"
+  #   container_port   = 80
+  # }
 }
 
 resource "aws_alb" "nginx_alb" {
@@ -133,18 +133,18 @@ resource "aws_alb_target_group" "nginx_tg" {
   }
 }
 
-resource "aws_alb_listener" "nginx_listener" {
-  load_balancer_arn = aws_alb.nginx_alb.arn
-  port              = "443"
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  depends_on        = [aws_alb_target_group.nginx_tg]
+# resource "aws_alb_listener" "nginx_listener" {
+#   load_balancer_arn = aws_alb.nginx_alb.arn
+#   port              = "443"
+#   protocol          = "HTTPS"
+#   ssl_policy        = "ELBSecurityPolicy-2016-08"
+#   depends_on        = [aws_alb_target_group.nginx_tg]
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_alb_target_group.nginx_tg.arn
-  }
-}
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = aws_alb_target_group.nginx_tg.arn
+#   }
+# }
 
 resource "aws_cloudwatch_log_group" "nginx_log_group" {
   name              = "/ecs/nginx"
