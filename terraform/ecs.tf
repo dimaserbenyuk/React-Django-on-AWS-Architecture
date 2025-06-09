@@ -4,6 +4,9 @@
 
 resource "aws_ecs_cluster" "celery_cluster" {
   name = "django-cluster"
+  tags = {
+    environment = "development"
+  }
 }
 
 resource "aws_ecs_task_definition" "celery_worker" {
@@ -13,14 +16,21 @@ resource "aws_ecs_task_definition" "celery_worker" {
   cpu                      = "512"
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.celery_role.arn # ✅ используем роль из sqs.tf
+  task_role_arn            = aws_iam_role.celery_role.arn
 
   container_definitions = jsonencode([
     {
       name      = "django"
       image     = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
       essential = true
-      command   = ["python", "manage.py", "runserver"]
+      command   = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+      portMappings = [
+        {
+          containerPort = 8000
+          hostPort      = 8000
+          protocol      = "tcp"
+        }
+      ]
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
@@ -29,6 +39,18 @@ resource "aws_ecs_task_definition" "celery_worker" {
         {
           name      = "SECRET_KEY"
           valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY"
+        },
+        {
+          name      = "DJANGO_SU_NAME"
+          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_NAME"
+        },
+        {
+          name      = "DJANGO_SU_EMAIL"
+          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_EMAIL"
+        },
+        {
+          name      = "DJANGO_SU_PASSWORD"
+          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_PASSWORD"
         }
       ],
       logConfiguration = {
@@ -41,6 +63,9 @@ resource "aws_ecs_task_definition" "celery_worker" {
       }
     }
   ])
+  tags = {
+    environment = "development"
+  }
 }
 
 # ✅ execution role (нужна для доступа к ECR, logs и т.п.)
@@ -66,11 +91,12 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 
 # ✅ ECS Service
 resource "aws_ecs_service" "django_service" {
-  name            = "django-service"
-  cluster         = aws_ecs_cluster.celery_cluster.id
-  task_definition = aws_ecs_task_definition.celery_worker.arn
-  launch_type     = "FARGATE"
-  desired_count   = 1
+  name                   = "django-service"
+  cluster                = aws_ecs_cluster.celery_cluster.id
+  task_definition        = aws_ecs_task_definition.celery_worker.arn
+  launch_type            = "FARGATE"
+  desired_count          = 1
+  enable_execute_command = true
 
   network_configuration {
     subnets          = [aws_subnet.public1.id, aws_subnet.public2.id]

@@ -25,6 +25,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY manage.py .
 COPY backend/ backend/
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 RUN groupadd -g 1000 appgroup && \
     useradd -r -u 1000 -g appgroup appuser
@@ -36,10 +38,13 @@ USER appuser
 
 EXPOSE 8000
 
+ENV DJANGO_SU_NAME=admin
+ENV DJANGO_SU_EMAIL=admin@my.company
+ENV DJANGO_SU_PASSWORD=dummy
+
 ENV DJANGO_SETTINGS_MODULE=backend.settings.dev
 ENV DJANGO_ENV=dev
 ENV XDG_CACHE_HOME=/usr/src/app/.cache
 
-# CMD [ "sleep","30000" ]
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-
