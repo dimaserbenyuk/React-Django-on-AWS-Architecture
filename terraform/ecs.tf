@@ -20,38 +20,20 @@ resource "aws_ecs_task_definition" "celery_worker" {
 
   container_definitions = jsonencode([
     {
-      name      = "django"
-      image     = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
-      essential = true
-      command   = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-      portMappings = [
-        {
-          containerPort = 8000
-          hostPort      = 8000
-          protocol      = "tcp"
-        }
-      ]
+      name         = "django"
+      image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
+      essential    = true
+      command      = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+      portMappings = [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }]
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
       ],
       secrets = [
-        {
-          name      = "SECRET_KEY"
-          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY"
-        },
-        {
-          name      = "DJANGO_SU_NAME"
-          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_NAME"
-        },
-        {
-          name      = "DJANGO_SU_EMAIL"
-          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_EMAIL"
-        },
-        {
-          name      = "DJANGO_SU_PASSWORD"
-          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_PASSWORD"
-        }
+        { name = "SECRET_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY" },
+        { name = "DJANGO_SU_NAME", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_NAME" },
+        { name = "DJANGO_SU_EMAIL", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_EMAIL" },
+        { name = "DJANGO_SU_PASSWORD", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_PASSWORD" }
       ],
       logConfiguration = {
         logDriver = "awslogs",
@@ -62,6 +44,22 @@ resource "aws_ecs_task_definition" "celery_worker" {
         }
       }
     }
+    # {
+    #   name         = "nginx"
+    #   image        = "efe"
+    #   essential    = true
+    #   cpu          = 10
+    #   memory       = 128
+    #   portMappings = [{ containerPort = 80, protocol = "tcp" }]
+    #   logConfiguration = {
+    #     logDriver = "awslogs",
+    #     options = {
+    #       awslogs-group         = "/ecs/nginx",
+    #       awslogs-region        = "us-east-1",
+    #       awslogs-stream-prefix = "nginx"
+    #     }
+    #   }
+    # }
   ])
   tags = {
     environment = "development"
@@ -102,6 +100,81 @@ resource "aws_ecs_service" "django_service" {
     subnets          = [aws_subnet.public1.id, aws_subnet.public2.id]
     assign_public_ip = true
     security_groups  = [aws_security_group.celery_sg.id]
+  }
+  load_balancer {
+    target_group_arn = aws_alb_target_group.nginx_tg.arn
+    container_name   = "nginx"
+    container_port   = 80
+  }
+}
+
+resource "aws_alb" "nginx_alb" {
+  name               = "nginx-alb"
+  internal           = false
+  load_balancer_type = "application"
+  subnets            = [aws_subnet.public1.id, aws_subnet.public2.id]
+  security_groups    = [aws_security_group.load-balancer.id]
+}
+
+resource "aws_alb_target_group" "nginx_tg" {
+  name        = "nginx-target-group"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+
+  health_check {
+    path                = "/"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    matcher             = "200"
+  }
+}
+
+resource "aws_alb_listener" "nginx_listener" {
+  load_balancer_arn = aws_alb.nginx_alb.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  depends_on        = [aws_alb_target_group.nginx_tg]
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.nginx_tg.arn
+  }
+}
+
+resource "aws_cloudwatch_log_group" "nginx_log_group" {
+  name              = "/ecs/nginx"
+  retention_in_days = 7
+}
+
+resource "aws_security_group" "load-balancer" {
+  name        = "load_balancer_security_group"
+  description = "Controls access to the ALB"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
