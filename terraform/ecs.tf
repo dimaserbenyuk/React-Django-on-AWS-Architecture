@@ -24,7 +24,13 @@ resource "aws_ecs_task_definition" "celery_worker" {
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
-      ]
+      ],
+      secrets = [
+        {
+          name      = "SECRET_KEY"
+          valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY"
+        }
+      ],
       logConfiguration = {
         logDriver = "awslogs",
         options = {
@@ -58,11 +64,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# ❌ УДАЛИ ЭТО! дублирует celery_role из sqs.tf
-# resource "aws_iam_role" "celery_task_role" {
-#   ...
-# }
-
 # ✅ ECS Service
 resource "aws_ecs_service" "django_service" {
   name            = "django-service"
@@ -82,4 +83,37 @@ resource "aws_ecs_service" "django_service" {
 resource "aws_cloudwatch_log_group" "django_logs" {
   name              = "/ecs/django"
   retention_in_days = 7
+}
+
+resource "aws_iam_policy" "ssm_access" {
+  name = "ecs-ssm-access"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ssm:GetParameters",
+          "ssm:GetParameter"
+        ],
+        Resource = [
+          "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_ssm" {
+  role       = aws_iam_role.celery_role.name
+  policy_arn = aws_iam_policy.ssm_access.arn
+}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_policy_attachment" "attach_ssm_exec" {
+  name       = "attach-ssm-exec-role"
+  roles      = [aws_iam_role.ecs_task_execution_role.name]
+  policy_arn = aws_iam_policy.ssm_access.arn
 }
