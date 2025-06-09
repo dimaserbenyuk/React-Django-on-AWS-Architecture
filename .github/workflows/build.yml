@@ -124,7 +124,7 @@ jobs:
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ env.IMAGE_TAG }}
 
-  nginx_build:
+  nginx:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -150,13 +150,13 @@ jobs:
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
-      - name: Docker meta for NGINX
+      - name: Docker meta (NGINX)
         id: nginx_meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.NGINX_IMAGE }}
           tags: |
-            type=raw,value=${{ env.IMAGE_TAG }}
+            type=raw,value=latest
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
