@@ -151,7 +151,7 @@ jobs:
       - name: Build and push to ECR
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./nginx
           file: ./nginx/Dockerfile
           platforms: linux/amd64
           push: true
