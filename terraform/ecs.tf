@@ -27,7 +27,9 @@ resource "aws_ecs_task_definition" "celery_worker" {
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
-        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
+        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
+        { name = "CSRF_TRUSTED_ORIGINS", value = "https://*.projectnext.uk/" },
+        { name = "ALLOWED_HOSTS", value = "api.projectnext.uk" }
       ],
       secrets = [
         { name = "SECRET_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY" },

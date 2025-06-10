@@ -47,7 +47,7 @@ SECRET_KEY = 'django-insecure-0i6xv'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["http://localhost:3000","http://localhost:5173/"]
+ALLOWED_HOSTS = ['*']
 
 import logging.config
 from django.utils.log import DEFAULT_LOGGING
