@@ -43,3 +43,15 @@ resource "aws_acm_certificate_validation" "main" {
   certificate_arn         = aws_acm_certificate.main.arn
   validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
 }
+
+resource "aws_route53_record" "api_alias" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "api.projectnext.uk"
+  type    = "A"
+
+  alias {
+    name                   = aws_alb.nginx_alb.dns_name
+    zone_id                = aws_alb.nginx_alb.zone_id
+    evaluate_target_health = true
+  }
+}

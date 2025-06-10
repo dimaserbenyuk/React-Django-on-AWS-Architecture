@@ -28,7 +28,7 @@ resource "aws_ecs_task_definition" "django-worker" {
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
-        { name = "CSRF_TRUSTED_ORIGINS", value = "https://*.projectnext.uk/" },
+        { name = "CSRF_TRUSTED_ORIGINS", value = "https://api.projectnext.uk,https://projectnext.uk" },
         { name = "ALLOWED_HOSTS", value = "api.projectnext.uk" }
       ],
       secrets = [
