@@ -219,3 +219,4 @@ resource "aws_iam_policy_attachment" "attach_ssm_exec" {
   roles      = [aws_iam_role.ecs_task_execution_role.name]
   policy_arn = aws_iam_policy.ssm_access.arn
 }
+

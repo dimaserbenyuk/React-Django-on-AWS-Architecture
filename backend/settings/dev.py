@@ -3,6 +3,10 @@ from .base import *
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 
+CSRF_TRUSTED_ORIGINS = ['https://api.projectnext.uk/', 'https://projectnext.uk/']
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_PATH = "/"
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
