@@ -68,11 +68,16 @@ resource "aws_ecs_task_definition" "celery-worker" {
       name         = "celery"
       image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
       essential    = true
-      command      = ["celery", "-A", "backend", "report"]
+      command      = ["celery", "-A", "backend", "worker", "--loglevel=info"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
-        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
+        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
+        {name = "CELERY_BROKER_URL", value = "sqs://"}
+      ],
+      secrets = [
+        { name = "AWS_ACCESS_KEY_ID", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/AWS_ACCESS_KEY_ID" },
+        { name = "AWS_SECRET_ACCESS_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/AWS_SECRET_ACCESS_KEY" },
       ],
       logConfiguration = {
         logDriver = "awslogs",

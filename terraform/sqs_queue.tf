@@ -65,7 +65,8 @@ resource "aws_iam_policy" "celery_sqs_policy" {
           "sqs:DeleteMessage",
           "sqs:GetQueueAttributes",
           "sqs:GetQueueUrl",
-          "sqs:ChangeMessageVisibility"
+          "sqs:ChangeMessageVisibility",
+          "sqs:ListQueues"
         ],
         Resource = [
           aws_sqs_queue.celery_queue.arn,
