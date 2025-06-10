@@ -1,3 +1,4 @@
+from urllib.parse import quote
 from .base import *
 import os
 
@@ -29,7 +30,7 @@ LOGOFILES_LOCATION = "invoices/logos"
 PDFFILES_LOCATION = "invoices/pdfs"
 
 # Celery config with SQS FIFO
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "sqs://")
+# CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "sqs://")
 
 BROKER_TRANSPORT_OPTIONS = {
     "region": os.getenv("AWS_SQS_REGION", "us-east-1"),
@@ -58,3 +59,8 @@ SQS_QUEUE_NAME = "celery-prod-queue.fifo"
 #     account_id=AWS_ACCOUNT_ID,
 #     queue=SQS_QUEUE_NAME,
 # )
+
+CELERY_BROKER_URL = "sqs://{access_key}:{secret_key}@sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo".format(
+    access_key=quote(AWS_ACCESS_KEY_ID, safe=""),
+    secret_key=quote(AWS_SECRET_ACCESS_KEY, safe=""),
+)
