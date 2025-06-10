@@ -16,7 +16,7 @@ resource "aws_ecs_task_definition" "django-worker" {
   cpu                      = "512"
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.celery_role.arn
+  task_role_arn            = aws_iam_role.celery_execution_role.arn
 
   container_definitions = jsonencode([
     {
@@ -61,19 +61,20 @@ resource "aws_ecs_task_definition" "celery-worker" {
   cpu                      = "512"
   memory                   = "1024"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.celery_role.arn
+  task_role_arn            = aws_iam_role.celery_execution_role.arn
 
   container_definitions = jsonencode([
     {
       name         = "celery"
       image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
       essential    = true
-      command      = ["celery", "-A", "backend", "report"]
+      command      = ["celery", "-A", "backend", "worker", "--loglevel=info"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
-        {name = "AWS_SQS_REGION", value = "us-east-1"}
+        {name = "AWS_SQS_REGION", value = "us-east-1"},
+        { name = "AWS_CELERY_ROLE_ARN", value = aws_iam_role.celery_worker_role.arn }
       ],
       secrets = [
         { name = "AWS_ACCESS_KEY_ID", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/AWS_ACCESS_KEY_ID" },
@@ -265,7 +266,7 @@ resource "aws_iam_policy" "ssm_access" {
 }
 
 resource "aws_iam_role_policy_attachment" "attach_ssm" {
-  role       = aws_iam_role.celery_role.name
+  role       = aws_iam_role.celery_execution_role.name
   policy_arn = aws_iam_policy.ssm_access.arn
 }
 

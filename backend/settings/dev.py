@@ -32,24 +32,24 @@ PDFFILES_LOCATION = "invoices/pdfs"
 # Celery config with SQS FIFO
 # CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "sqs://")
 
-BROKER_TRANSPORT_OPTIONS = {
-    "region": os.getenv("AWS_SQS_REGION", "us-east-1"),
-    "is_secure": True,
-    "visibility_timeout": 3600,
-    "polling_interval": 10,
-    "wait_time_seconds": 20,
-    "predefined_queues": {
-        "celery-prod-queue.fifo": {
-            "url": f"https://sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo"
-        }
-    },
-}
+# BROKER_TRANSPORT_OPTIONS = {
+#     "region": os.getenv("AWS_SQS_REGION", "us-east-1"),
+#     "is_secure": True,
+#     "visibility_timeout": 3600,
+#     "polling_interval": 10,
+#     "wait_time_seconds": 20,
+#     "predefined_queues": {
+#         "celery-prod-queue.fifo": {
+#             "url": f"https://sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo"
+#         }
+#     },
+# }
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.getenv("AWS_SQS_REGION", "us-east-1")
-AWS_ACCOUNT_ID = "272509770066"
-SQS_QUEUE_NAME = "celery-prod-queue.fifo"
+# AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+# AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+# AWS_REGION = os.getenv("AWS_SQS_REGION", "us-east-1")
+# AWS_ACCOUNT_ID = "272509770066"
+# SQS_QUEUE_NAME = "celery-prod-queue.fifo"
 
 # Optional: dynamic URL-based broker format (not recommended for SSM-based setups)
 # from urllib.parse import quote
@@ -60,7 +60,24 @@ SQS_QUEUE_NAME = "celery-prod-queue.fifo"
 #     queue=SQS_QUEUE_NAME,
 # )
 
-CELERY_BROKER_URL = "sqs://{access_key}:{secret_key}@sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo".format(
-    access_key=quote(AWS_ACCESS_KEY_ID, safe=""),
-    secret_key=quote(AWS_SECRET_ACCESS_KEY, safe=""),
-)
+# CELERY_BROKER_URL = "sqs://{access_key}:{secret_key}@sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo".format(
+#     access_key=quote(AWS_ACCESS_KEY_ID, safe=""),
+#     secret_key=quote(AWS_SECRET_ACCESS_KEY, safe=""),
+# )
+
+CELERY_BROKER_URL = "sqs://"
+
+BROKER_TRANSPORT_OPTIONS = {
+    "region": os.getenv("AWS_SQS_REGION", "us-east-1"),
+    "is_secure": True,
+    "visibility_timeout": 3600,
+    "wait_time_seconds": 20,
+    "polling_interval": 10,
+    "sts_role_arn": os.getenv("AWS_CELERY_ROLE_ARN"),
+    "sts_token_timeout": 900,
+    "predefined_queues": {
+        "celery-prod-queue.fifo": {
+            "url": "https://sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo"
+        }
+    },
+}
