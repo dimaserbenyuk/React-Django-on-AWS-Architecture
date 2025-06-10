@@ -81,3 +81,5 @@ BROKER_TRANSPORT_OPTIONS = {
         }
     },
 }
+CELERY_TASK_DEFAULT_QUEUE = "celery-prod-queue.fifo"
+CELERY_TASK_QUEUES = None  # optional; if used, must match predefined_queues
