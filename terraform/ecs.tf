@@ -28,7 +28,7 @@ resource "aws_ecs_task_definition" "django-worker" {
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
-        { name = "CSRF_TRUSTED_ORIGINS", value = "https://api.projectnext.uk,https://projectnext.uk" },
+        { name = "CSRF_TRUSTED_ORIGINS", value = "https://api.projectnext.uk,https://projectnext.uk,https://api.projectnext.uk/admin" },
         { name = "ALLOWED_HOSTS", value = "api.projectnext.uk" }
       ],
       secrets = [
@@ -68,12 +68,12 @@ resource "aws_ecs_task_definition" "celery-worker" {
       name         = "celery"
       image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
       essential    = true
-      command      = ["celery", "-A", "backend", "worker", "--loglevel=info"]
+      command      = ["celery", "-A", "backend", "report"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
-        {name = "CELERY_BROKER_URL", value = "sqs://"}
+        {name = "AWS_SQS_REGION", value = "us-east-1"}
       ],
       secrets = [
         { name = "AWS_ACCESS_KEY_ID", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/AWS_ACCESS_KEY_ID" },

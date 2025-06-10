@@ -5,7 +5,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,api.projectnext.uk").split(",")
 
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "https://api.projectnext.uk/").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "https://api.projectnext.uk").split(",")
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_PATH = "/"
 
@@ -29,7 +29,7 @@ LOGOFILES_LOCATION = "invoices/logos"
 PDFFILES_LOCATION = "invoices/pdfs"
 
 # Celery config with SQS FIFO
-CELERY_BROKER_URL = "sqs://"
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "sqs://")
 
 BROKER_TRANSPORT_OPTIONS = {
     "region": os.getenv("AWS_SQS_REGION", "us-east-1"),
@@ -50,7 +50,7 @@ AWS_REGION = os.getenv("AWS_SQS_REGION", "us-east-1")
 AWS_ACCOUNT_ID = "272509770066"
 SQS_QUEUE_NAME = "celery-prod-queue.fifo"
 
-# Optional: dynamic URL-based broker format (commented for now)
+# Optional: dynamic URL-based broker format (not recommended for SSM-based setups)
 # from urllib.parse import quote
 # CELERY_BROKER_URL = "sqs://{access_key}:{secret_key}@sqs.us-east-1.amazonaws.com/{account_id}/{queue}".format(
 #     access_key=quote(AWS_ACCESS_KEY_ID or "", safe=""),
