@@ -2,14 +2,14 @@
 # ECS FARGATE + Django WORKER
 # ============================
 
-resource "aws_ecs_cluster" "celery_cluster" {
+resource "aws_ecs_cluster" "django-cluster" {
   name = "django-cluster"
   tags = {
     environment = "development"
   }
 }
 
-resource "aws_ecs_task_definition" "celery_worker" {
+resource "aws_ecs_task_definition" "django-worker" {
   family                   = "django-worker"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -54,8 +54,8 @@ resource "aws_ecs_task_definition" "celery_worker" {
 
 ###
 
-resource "aws_ecs_task_definition" "celery_worker" {
-  family                   = "celery_worker"
+resource "aws_ecs_task_definition" "celery-worker" {
+  family                   = "celery-worker"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "512"
@@ -68,8 +68,6 @@ resource "aws_ecs_task_definition" "celery_worker" {
       name         = "celery"
       image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
       essential    = true
-      cpu          = "512"
-      memory       = "1024"
       command      = ["celery", "-A", "backend", "report"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
@@ -115,8 +113,8 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 # ✅ ECS Service
 resource "aws_ecs_service" "django_service" {
   name                   = "django-service"
-  cluster                = aws_ecs_cluster.celery_cluster.id
-  task_definition        = aws_ecs_task_definition.celery_worker.arn
+  cluster                = aws_ecs_cluster.django-cluster.id
+  task_definition        = aws_ecs_task_definition.django-worker.arn
   launch_type            = "FARGATE"
   desired_count          = 1
   enable_execute_command = true
@@ -134,6 +132,31 @@ resource "aws_ecs_service" "django_service" {
   depends_on = [
     aws_alb_listener.nginx_https
   ]
+}
+
+###
+
+resource "aws_ecs_service" "celery_service" {
+  name                   = "celery-service"
+  cluster                = aws_ecs_cluster.django-cluster.id
+  task_definition        = aws_ecs_task_definition.celery-worker.arn
+  launch_type            = "FARGATE"
+  desired_count          = 1
+  enable_execute_command = true
+
+  network_configuration {
+    subnets          = [aws_subnet.public1.id, aws_subnet.public2.id]
+    assign_public_ip = true
+    security_groups  = [aws_security_group.celery_sg.id]
+  }
+  # load_balancer {
+  #   target_group_arn = aws_alb_target_group.nginx_tg.arn
+  #   container_name   = "django"
+  #   container_port   = 8000
+  # }
+  # depends_on = [
+  #   aws_alb_listener.nginx_https
+  # ]
 }
 
 resource "aws_alb" "nginx_alb" {

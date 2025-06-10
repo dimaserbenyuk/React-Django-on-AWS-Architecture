@@ -49,4 +49,4 @@ ENV DJANGO_ENV=dev
 ENV XDG_CACHE_HOME=/usr/src/app/.cache
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
