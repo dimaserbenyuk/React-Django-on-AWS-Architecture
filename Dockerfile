@@ -24,6 +24,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY manage.py .
 COPY backend/ backend/
+# COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# COPY nginx/nginx.conf /etc/nginx/nginx.conf
+# COPY nginx/app.conf /etc/nginx/conf.d/app.conf
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

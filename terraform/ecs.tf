@@ -20,9 +20,9 @@ resource "aws_ecs_task_definition" "celery_worker" {
 
   container_definitions = jsonencode([
     {
-      name         = "django"
-      image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
-      essential    = true
+      name      = "django"
+      image     = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
+      essential = true
       command      = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
@@ -43,24 +43,24 @@ resource "aws_ecs_task_definition" "celery_worker" {
           awslogs-stream-prefix = "django"
         }
       }
-    },
-    {
-      name         = "nginx"
-      image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-nginx:latest"
-      essential    = true
-      cpu          = 10
-      memory       = 128
-      portMappings = [{ containerPort = 80, protocol = "tcp" }]
-      dependsOn    = [{ containerName = "django", condition = "START" }]
-      logConfiguration = {
-        logDriver = "awslogs",
-        options = {
-          awslogs-group         = "/ecs/nginx",
-          awslogs-region        = "us-east-1",
-          awslogs-stream-prefix = "nginx"
-        }
-      }
     }
+    # {
+    #   name         = "nginx"
+    #   image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-nginx:latest"
+    #   essential    = true
+    #   cpu          = 10
+    #   memory       = 128
+    #   portMappings = [{ containerPort = 80, protocol = "tcp" }]
+    #   dependsOn    = [{ containerName = "django", condition = "START" }]
+    #   logConfiguration = {
+    #     logDriver = "awslogs",
+    #     options = {
+    #       awslogs-group         = "/ecs/nginx",
+    #       awslogs-region        = "us-east-1",
+    #       awslogs-stream-prefix = "nginx"
+    #     }
+    #   }
+    # }
   ])
   tags = {
     environment = "development"
@@ -104,8 +104,8 @@ resource "aws_ecs_service" "django_service" {
   }
   load_balancer {
     target_group_arn = aws_alb_target_group.nginx_tg.arn
-    container_name   = "nginx"
-    container_port   = 80
+    container_name   = "django"
+    container_port   = 8000
   }
   depends_on = [
     aws_alb_listener.nginx_https
@@ -122,7 +122,7 @@ resource "aws_alb" "nginx_alb" {
 
 resource "aws_alb_target_group" "nginx_tg" {
   name        = "nginx-target-group"
-  port        = 80
+  port        = 8000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
