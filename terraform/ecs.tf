@@ -51,6 +51,7 @@ resource "aws_ecs_task_definition" "celery_worker" {
       cpu          = 10
       memory       = 128
       portMappings = [{ containerPort = 80, protocol = "tcp" }]
+      dependsOn    = [{ containerName = "django", condition = "START" }]
       logConfiguration = {
         logDriver = "awslogs",
         options = {
@@ -101,11 +102,14 @@ resource "aws_ecs_service" "django_service" {
     assign_public_ip = true
     security_groups  = [aws_security_group.celery_sg.id]
   }
-  # load_balancer {
-  #   target_group_arn = aws_alb_target_group.nginx_tg.arn
-  #   container_name   = "nginx"
-  #   container_port   = 80
-  # }
+  load_balancer {
+    target_group_arn = aws_alb_target_group.nginx_tg.arn
+    container_name   = "nginx"
+    container_port   = 80
+  }
+  depends_on = [
+    aws_alb_listener.nginx_https
+  ]
 }
 
 resource "aws_alb" "nginx_alb" {
@@ -133,19 +137,18 @@ resource "aws_alb_target_group" "nginx_tg" {
   }
 }
 
-# resource "aws_alb_listener" "nginx_listener" {
-#   load_balancer_arn = aws_alb.nginx_alb.arn
-#   port              = "443"
-#   protocol          = "HTTPS"
-#   ssl_policy        = "ELBSecurityPolicy-2016-08"
-#   depends_on        = [aws_alb_target_group.nginx_tg]
+resource "aws_alb_listener" "nginx_https" {
+  load_balancer_arn = aws_alb.nginx_alb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = aws_acm_certificate_validation.main.certificate_arn
 
-#   default_action {
-#     type             = "forward"
-#     target_group_arn = aws_alb_target_group.nginx_tg.arn
-#   }
-# }
-
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_alb_target_group.nginx_tg.arn
+  }
+}
 resource "aws_cloudwatch_log_group" "nginx_log_group" {
   name              = "/ecs/nginx"
   retention_in_days = 7
