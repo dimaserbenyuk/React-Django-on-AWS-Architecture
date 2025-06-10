@@ -4,7 +4,7 @@ import os
 
 DEBUG = True
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,api.projectnext.uk").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,api.projectnext.uk,nginx-alb-2068089580.us-east-1.elb.amazonaws.com").split(",")
 
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "https://api.projectnext.uk").split(",")
 CSRF_COOKIE_SAMESITE = "Lax"
