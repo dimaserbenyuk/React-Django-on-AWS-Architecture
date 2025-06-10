@@ -29,7 +29,7 @@ resource "aws_ecs_task_definition" "django-worker" {
         { name = "DJANGO_ENV", value = "dev" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
         { name = "CSRF_TRUSTED_ORIGINS", value = "https://api.projectnext.uk,https://projectnext.uk,https://api.projectnext.uk/admin" },
-        { name = "ALLOWED_HOSTS", value = "api.projectnext.uk" }
+        { name = "ALLOWED_HOSTS", value = "*" }
       ],
       secrets = [
         { name = "SECRET_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY" },

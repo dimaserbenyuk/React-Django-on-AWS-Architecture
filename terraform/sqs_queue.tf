@@ -110,6 +110,18 @@ resource "aws_iam_policy" "celery_sqs_policy" {
           "sqs:ChangeMessageVisibility",
           "sqs:ListQueues"
         ],
+        Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "sqs:SendMessage",
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ChangeMessageVisibility"
+        ],
         Resource = [
           aws_sqs_queue.celery_queue.arn,
           aws_sqs_queue.celery_dlq.arn
