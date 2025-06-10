@@ -20,9 +20,9 @@ resource "aws_ecs_task_definition" "celery_worker" {
 
   container_definitions = jsonencode([
     {
-      name      = "django"
-      image     = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
-      essential = true
+      name         = "django"
+      image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
+      essential    = true
       command      = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
@@ -46,23 +46,45 @@ resource "aws_ecs_task_definition" "celery_worker" {
         }
       }
     }
-    # {
-    #   name         = "nginx"
-    #   image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-nginx:latest"
-    #   essential    = true
-    #   cpu          = 10
-    #   memory       = 128
-    #   portMappings = [{ containerPort = 80, protocol = "tcp" }]
-    #   dependsOn    = [{ containerName = "django", condition = "START" }]
-    #   logConfiguration = {
-    #     logDriver = "awslogs",
-    #     options = {
-    #       awslogs-group         = "/ecs/nginx",
-    #       awslogs-region        = "us-east-1",
-    #       awslogs-stream-prefix = "nginx"
-    #     }
-    #   }
-    # }
+  ])
+  tags = {
+    environment = "development"
+  }
+}
+
+###
+
+resource "aws_ecs_task_definition" "celery_worker" {
+  family                   = "celery_worker"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "512"
+  memory                   = "1024"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.celery_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name         = "celery"
+      image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
+      essential    = true
+      cpu          = "512"
+      memory       = "1024"
+      command      = ["celery", "-A", "backend", "report"]
+      portMappings = [{ containerPort = 8000, protocol = "tcp" }]
+      environment = [
+        { name = "DJANGO_ENV", value = "dev" },
+        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" }
+      ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          awslogs-group         = "/ecs/celery",
+          awslogs-region        = "us-east-1",
+          awslogs-stream-prefix = "celery"
+        }
+      }
+    }
   ])
   tags = {
     environment = "development"
@@ -153,6 +175,11 @@ resource "aws_alb_listener" "nginx_https" {
 }
 resource "aws_cloudwatch_log_group" "nginx_log_group" {
   name              = "/ecs/nginx"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "celery_log_group" {
+  name              = "/ecs/celery"
   retention_in_days = 7
 }
 
