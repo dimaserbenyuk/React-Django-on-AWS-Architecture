@@ -35,6 +35,11 @@ PDFFILES_LOCATION = "invoices/pdfs"
 # AWS_REGION = os.getenv("AWS_SQS_REGION", "us-east-1")
 
 # CELERY_BROKER_URL = f"sqs://{quote(AWS_ACCESS_KEY_ID)}:{quote(AWS_SECRET_ACCESS_KEY)}@"
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+AWS_REGION = os.getenv("AWS_SQS_REGION", "us-east-1")
+AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID", "272509770066")
+SQS_QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "celery-prod-queue.fifo")
 
 BROKER_TRANSPORT_OPTIONS = {
     "region": AWS_REGION,
@@ -52,11 +57,5 @@ BROKER_TRANSPORT_OPTIONS = {
 CELERY_TASK_DEFAULT_QUEUE = "celery-prod-queue.fifo"
 CELERY_TASK_QUEUES = None  # если используется, должен соответствовать predefined_queues
 
-
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-AWS_REGION = os.getenv("AWS_SQS_REGION", "us-east-1")
-AWS_ACCOUNT_ID = os.getenv("AWS_ACCOUNT_ID", "272509770066")
-SQS_QUEUE_NAME = os.getenv("SQS_QUEUE_NAME", "celery-prod-queue.fifo")
 
 CELERY_BROKER_URL = f"sqs://{quote(AWS_ACCESS_KEY_ID)}:{quote(AWS_SECRET_ACCESS_KEY)}@"
