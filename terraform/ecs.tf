@@ -26,8 +26,8 @@ resource "aws_ecs_task_definition" "django-worker" {
       command      = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
-        { name = "DJANGO_ENV", value = "dev" },
-        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
+        { name = "DJANGO_ENV", value = "prod" },
+        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.prod" },
         { name = "CSRF_TRUSTED_ORIGINS", value = "https://api.projectnext.uk,https://projectnext.uk,https://api.projectnext.uk/admin" },
         { name = "ALLOWED_HOSTS", value = "*" }
       ],
@@ -35,7 +35,12 @@ resource "aws_ecs_task_definition" "django-worker" {
         { name = "SECRET_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY" },
         { name = "DJANGO_SU_NAME", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_NAME" },
         { name = "DJANGO_SU_EMAIL", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_EMAIL" },
-        { name = "DJANGO_SU_PASSWORD", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_PASSWORD" }
+        { name = "DJANGO_SU_PASSWORD", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SU_PASSWORD" },
+        { name = "POSTGRES_DB", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_DB" },
+        { name = "POSTGRES_USER", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_USER" },
+        { name = "POSTGRES_PASSWORD", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_PASSWORD" },
+        { name = "POSTGRES_HOST", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_HOST" },
+        { name = "POSTGRES_PORT", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_PORT" }
       ],
       logConfiguration = {
         logDriver = "awslogs",
@@ -71,9 +76,11 @@ resource "aws_ecs_task_definition" "celery-worker" {
       command      = ["celery", "-A", "backend", "worker", "--loglevel=info"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
-        { name = "DJANGO_ENV", value = "dev" },
-        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.dev" },
-        {name = "AWS_SQS_REGION", value = "us-east-1"},
+        { name = "DJANGO_ENV", value = "prod" },
+        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.prod" },
+        { name = "AWS_SQS_REGION", value = "us-east-1" },
+        { name = "AWS_ACCOUNT_ID", value = "272509770066" },
+        { name = "SQS_QUEUE_NAME", value = "celery-prod-queue.fifo" },
         { name = "AWS_CELERY_ROLE_ARN", value = aws_iam_role.celery_worker_role.arn }
       ],
       secrets = [

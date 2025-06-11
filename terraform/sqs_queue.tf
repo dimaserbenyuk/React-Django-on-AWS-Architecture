@@ -3,15 +3,15 @@
 ####################
 
 resource "aws_sqs_queue" "celery_dlq" {
-  name                          = "celery-dlq.fifo"
-  fifo_queue                    = true
-  content_based_deduplication   = true
+  name                        = "celery-dlq.fifo"
+  fifo_queue                  = true
+  content_based_deduplication = true
 }
 
 resource "aws_sqs_queue" "celery_queue" {
-  name                          = "celery-prod-queue.fifo"
-  fifo_queue                    = true
-  content_based_deduplication   = true
+  name                        = "celery-prod-queue.fifo"
+  fifo_queue                  = true
+  content_based_deduplication = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.celery_dlq.arn,
@@ -60,8 +60,8 @@ resource "aws_iam_policy" "allow_assume_celery_worker_role" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow",
-        Action = "sts:AssumeRole",
+        Effect   = "Allow",
+        Action   = "sts:AssumeRole",
         Resource = aws_iam_role.celery_worker_role.arn
       }
     ]
@@ -134,4 +134,9 @@ resource "aws_iam_policy" "celery_sqs_policy" {
 resource "aws_iam_role_policy_attachment" "attach_sqs_to_worker_role" {
   role       = aws_iam_role.celery_worker_role.name
   policy_arn = aws_iam_policy.celery_sqs_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "attach_sqs_full_access" {
+  role       = aws_iam_role.celery_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
 }
