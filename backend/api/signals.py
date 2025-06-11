@@ -19,31 +19,38 @@ def generate_pdf_when_item_added(sender, instance, created, **kwargs):
         logger.warning("[signals] 🧾 InvoiceItem сохранён, но не связан с Invoice.")
         return
 
-    # Проверим: есть ли хотя бы одна позиция у инвойса
     if not invoice.items.exists():
         logger.info(f"[signals] ⏳ Invoice #{invoice.id} ещё без позиций.")
         return
 
-    # Проверим, не существует ли уже PDF
+    # Проверим: нет ли уже PDF-файла
     pdf_path = invoice.get_pdf_path()
     pdf_exists = False
 
     if getattr(settings, "USE_S3", False):
-        pdf_exists = bool(invoice.pdf_url)  # Можно улучшить HEAD-запросом, если нужно
+        pdf_exists = bool(invoice.pdf_url)
     else:
         pdf_exists = os.path.exists(pdf_path)
 
     if pdf_exists:
-        logger.info(f"[signals] ✅ Invoice #{invoice.id}: PDF уже существует. Пропускаем генерацию.")
+        logger.info(f"[signals] ✅ Invoice #{invoice.id}: PDF уже существует.")
+        return
+
+    # Проверим, не запущена ли задача на генерацию
+    latest_task = invoice.tasks.first()
+    if latest_task and latest_task.status in [
+        TaskStatus.Status.QUEUED,
+        TaskStatus.Status.RUNNING,
+        TaskStatus.Status.COMPLETED
+    ]:
+        logger.info(f"[signals] ⏩ Invoice #{invoice.id}: уже есть задача со статусом {latest_task.status}. Пропускаем.")
         return
 
     try:
-        logger.info(f"[signals] 🧾 Invoice #{invoice.id}: добавлена позиция. Генерируем PDF...")
+        logger.info(f"[signals] 🧾 Invoice #{invoice.id}: добавлена позиция. Запускаем генерацию PDF...")
 
-        # Отложенный запуск через Celery
         result = generate_pdf.delay(invoice.id)
 
-        # Создаём или обновляем статус задачи
         TaskStatus.objects.update_or_create(
             invoice=invoice,
             defaults={
@@ -53,6 +60,5 @@ def generate_pdf_when_item_added(sender, instance, created, **kwargs):
                 "heartbeat_at": now(),
             }
         )
-
     except Exception as e:
         logger.exception(f"[signals] ❌ Ошибка при запуске генерации PDF для Invoice #{invoice.id}")
