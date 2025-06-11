@@ -13,6 +13,7 @@ jobs:
       AWS_REGION: us-east-1
       BUCKET_NAME: react-app-projectnext
       DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      VITE_API_URL: https://api.projectnext.uk
 
     steps:
       - name: Checkout code
@@ -24,9 +25,11 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
+        working-directory: frontend
         run: yarn install --frozen-lockfile
 
       - name: Build React app
+        working-directory: frontend
         run: yarn build
 
       - name: Configure AWS credentials
@@ -38,7 +41,7 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 sync dist/ s3://$BUCKET_NAME \
+          aws s3 sync frontend/dist/ s3://$BUCKET_NAME \
             --delete \
             --cache-control "max-age=0, no-cache, no-store, must-revalidate"
 
