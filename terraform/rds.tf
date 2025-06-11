@@ -51,6 +51,7 @@ resource "aws_db_instance" "django" {
   max_allocated_storage   = 100
   db_subnet_group_name    = aws_db_subnet_group.rds_subnets.name
   vpc_security_group_ids  = [aws_security_group.rds.id]
+  db_name                 = aws_ssm_parameter.postgres_db.value
   username                = "edu"
   password                = random_password.rds_password.result
   skip_final_snapshot     = true
@@ -74,6 +75,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
+    security_groups = [aws_security_group.celery_sg.id]
     # security_groups = [aws_security_group.ecs_fargate.id] # доступ только с ECS
   }
 

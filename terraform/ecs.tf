@@ -29,7 +29,9 @@ resource "aws_ecs_task_definition" "django-worker" {
         { name = "DJANGO_ENV", value = "prod" },
         { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.prod" },
         { name = "CSRF_TRUSTED_ORIGINS", value = "https://api.projectnext.uk,https://projectnext.uk,https://api.projectnext.uk/admin" },
-        { name = "ALLOWED_HOSTS", value = "*" }
+        { name = "ALLOWED_HOSTS", value = "*" },
+        { name = "USE_S3", value = "TRUE" }, 
+        { name = "AWS_STORAGE_BUCKET_NAME", value = "django-invoice-d4aa5bee" }
       ],
       secrets = [
         { name = "SECRET_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY" },
@@ -81,11 +83,17 @@ resource "aws_ecs_task_definition" "celery-worker" {
         { name = "AWS_SQS_REGION", value = "us-east-1" },
         { name = "AWS_ACCOUNT_ID", value = "272509770066" },
         { name = "SQS_QUEUE_NAME", value = "celery-prod-queue.fifo" },
-        { name = "AWS_CELERY_ROLE_ARN", value = aws_iam_role.celery_worker_role.arn }
+        { name = "AWS_CELERY_ROLE_ARN", value = aws_iam_role.celery_worker_role.arn },
+        { name = "USE_S3", value = "TRUE" }
       ],
       secrets = [
         { name = "AWS_ACCESS_KEY_ID", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/AWS_ACCESS_KEY_ID" },
         { name = "AWS_SECRET_ACCESS_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/AWS_SECRET_ACCESS_KEY" },
+        { name = "POSTGRES_DB", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_DB" },
+        { name = "POSTGRES_USER", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_USER" },
+        { name = "POSTGRES_PASSWORD", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_PASSWORD" },
+        { name = "POSTGRES_HOST", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_HOST" },
+        { name = "POSTGRES_PORT", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_PORT" }
       ],
       logConfiguration = {
         logDriver = "awslogs",
@@ -133,8 +141,8 @@ resource "aws_ecs_service" "django_service" {
   enable_execute_command = true
 
   network_configuration {
-    subnets          = [aws_subnet.public1.id, aws_subnet.public2.id]
-    assign_public_ip = true
+    subnets          = [aws_subnet.private1.id, aws_subnet.private2.id]
+    assign_public_ip = false
     security_groups  = [aws_security_group.celery_sg.id]
   }
   load_balancer {
@@ -158,8 +166,8 @@ resource "aws_ecs_service" "celery_service" {
   enable_execute_command = true
 
   network_configuration {
-    subnets          = [aws_subnet.public1.id, aws_subnet.public2.id]
-    assign_public_ip = true
+    subnets          = [aws_subnet.private1.id, aws_subnet.private2.id]
+    assign_public_ip = false
     security_groups  = [aws_security_group.celery_sg.id]
   }
   # load_balancer {

@@ -56,7 +56,9 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
                 task_status.heartbeat_at = now()
                 task_status.save(update_fields=["heartbeat_at"])
 
-        logo_path = invoice.logo.url if invoice.logo and invoice.logo.name else None
+        # logo_path = invoice.logo.url if invoice.logo and invoice.logo.name else None
+        logo_path = invoice.logo.url if invoice.logo and invoice.logo.name else ""
+
 
         context = {
             "invoice_id": invoice.id,
