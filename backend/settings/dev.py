@@ -56,6 +56,7 @@ BROKER_TRANSPORT_OPTIONS = {
 
 CELERY_TASK_DEFAULT_QUEUE = "celery-prod-queue.fifo"
 CELERY_TASK_QUEUES = None  # если используется, должен соответствовать predefined_queues
+CELERY_RESULT_BACKEND ='disabled://'
 
 # CELERY_BROKER_URL = "sqs://{access_key}:{secret_key}@sqs.us-east-1.amazonaws.com/{account_id}/{queue}".format(
 #     access_key=quote(AWS_ACCESS_KEY_ID or "", safe=""),
@@ -69,5 +70,14 @@ CELERY_TASK_QUEUES = None  # если используется, должен с�
 #     secret_key=quote(AWS_SECRET_ACCESS_KEY, safe=""),
 # )
 
+# CELERY_BROKER_URL = "sqs://"
+# CELERY_BROKER_URL = f"sqs://{quote(AWS_ACCESS_KEY_ID)}:{quote(AWS_SECRET_ACCESS_KEY)}@sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo"
 
-CELERY_BROKER_URL = f"sqs://{quote(AWS_ACCESS_KEY_ID)}:{quote(AWS_SECRET_ACCESS_KEY)}@sqs.us-east-1.amazonaws.com/272509770066/celery-prod-queue.fifo"
+CELERY_BROKER_URL = "sqs://{access_key}:{secret_key}@sqs.us-east-1.amazonaws.com/{account_id}/{queue}".format(
+    access_key=quote(AWS_ACCESS_KEY_ID or "", safe=""),
+    secret_key=quote(AWS_SECRET_ACCESS_KEY or "", safe=""),
+    account_id=AWS_ACCOUNT_ID,
+    queue=SQS_QUEUE_NAME,
+)
+
+# CELERY_BROKER_URL = f"sqs://{AWS_ACCOUNT_ID}/{SQS_QUEUE_NAME}"
