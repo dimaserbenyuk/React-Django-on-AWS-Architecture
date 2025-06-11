@@ -55,3 +55,16 @@ resource "aws_route53_record" "api_alias" {
     evaluate_target_health = true
   }
 }
+
+
+resource "aws_route53_record" "app_alias" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "app.projectnext.uk"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.react_app.domain_name
+    zone_id                = aws_cloudfront_distribution.react_app.hosted_zone_id
+    evaluate_target_health = false
+  }
+}

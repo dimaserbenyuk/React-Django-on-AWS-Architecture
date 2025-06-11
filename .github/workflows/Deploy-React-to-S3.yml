@@ -13,7 +13,7 @@ jobs:
       AWS_REGION: us-east-1
       BUCKET_NAME: react-app-projectnext
       DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
-      VITE_API_URL: https://api.projectnext.uk
+      VITE_API_URL: https://api.projectnext.uk/api
 
     steps:
       - name: Checkout code
