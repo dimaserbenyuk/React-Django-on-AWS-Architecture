@@ -45,7 +45,7 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
         for idx, item in enumerate(invoice.items.all(), 1):
             item_total = item.total()
             items.append({
-                "name": item.name,
+                "name": item.name or "",
                 "qty": item.quantity,
                 "price": float(item.unit_price),
                 "total": float(item_total),
@@ -56,14 +56,12 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
                 task_status.heartbeat_at = now()
                 task_status.save(update_fields=["heartbeat_at"])
 
-        # logo_path = invoice.logo.url if invoice.logo and invoice.logo.name else None
         logo_path = invoice.logo.url if invoice.logo and invoice.logo.name else ""
-
 
         context = {
             "invoice_id": invoice.id,
-            "company": invoice.company_name,
-            "address": invoice.address,
+            "company": invoice.company_name or "",
+            "address": invoice.address or "",
             "date": invoice.created_at.strftime("%H:%M:%S, %d.%m.%Y"),
             "items": items,
             "total": float(total),
@@ -76,25 +74,34 @@ def generate_pdf(self, report_id: int) -> Dict[str, Any]:
             "logo_path": logo_path,
         }
 
+        logger.info("📦 Rendering context:\n%s", context)
+
         # Генерация PDF
         pdf_buffer = io.BytesIO()
         html = render_to_string("report_template.html", context)
+
+        if not html:
+            raise ValueError("❌ render_to_string вернул пустую строку")
+
+        # DEBUG: сохранить HTML как файл (при необходимости)
+        if settings.DEBUG:
+            with open(f"/tmp/invoice_{invoice.id}.html", "w") as f:
+                f.write(html)
+
         HTML(string=html).write_pdf(target=pdf_buffer)
         pdf_buffer.seek(0)
 
         pdf_url = None
 
         if getattr(settings, "USE_S3", False):
-            # Сохранение в S3
             storage = PDFStorage()
             storage.save(filename, ContentFile(pdf_buffer.read()))
             pdf_url = f"https://{storage.bucket_name}.s3.amazonaws.com/{storage.location}/{filename}"
             invoice.pdf_url = pdf_url
             invoice.save(update_fields=["pdf_url"])
             pdf_path = f"s3://{storage.bucket_name}/{storage.location}/{filename}"
-            logger.info("✅ PDF сохранён в S3: %s", pdf_path)
+            logger.info("✅ PDF сохранён в S3: %s", pdf_url)
         else:
-            # Сохранение локально
             output_dir = getattr(settings, "PDF_OUTPUT_DIR", os.path.join(settings.BASE_DIR, "pdf_output"))
             os.makedirs(output_dir, exist_ok=True)
             pdf_path = os.path.join(output_dir, filename)

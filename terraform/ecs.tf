@@ -85,6 +85,7 @@ resource "aws_ecs_task_definition" "celery-worker" {
         { name = "AWS_ACCOUNT_ID", value = "272509770066" },
         { name = "SQS_QUEUE_NAME", value = "celery-prod-queue.fifo" },
         { name = "AWS_CELERY_ROLE_ARN", value = aws_iam_role.celery_worker_role.arn },
+        { name = "DEBUG", value = "true" }, 
         { name = "USE_S3", value = "TRUE" }
       ],
       secrets = [
