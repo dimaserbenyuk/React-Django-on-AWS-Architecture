@@ -31,6 +31,7 @@ resource "aws_ecs_task_definition" "django-worker" {
         { name = "CSRF_TRUSTED_ORIGINS", value = "https://api.projectnext.uk,https://projectnext.uk,https://api.projectnext.uk/admin" },
         { name = "ALLOWED_HOSTS", value = "*" },
         { name = "USE_S3", value = "TRUE" }, 
+        { name = "DEBUG", value = "true" }, 
         { name = "AWS_STORAGE_BUCKET_NAME", value = "django-invoice-d4aa5bee" }
       ],
       secrets = [
