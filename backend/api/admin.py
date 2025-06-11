@@ -1,10 +1,13 @@
 import os
+import logging
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
+
 from .models import Invoice, InvoiceItem, Customer, TaskStatus
 from .tasks import generate_pdf
 
+logger = logging.getLogger(__name__)
 
 class InvoiceItemInline(admin.TabularInline):
     model = InvoiceItem
@@ -26,19 +29,21 @@ class InvoiceAdmin(admin.ModelAdmin):
         "latest_task_duration",
         "pdf_link",
     ]
-    readonly_fields = [
-        "pdf_link",
-    ]
+    readonly_fields = ["pdf_link"]
     inlines = [InvoiceItemInline]
     actions = ["generate_pdf_action"]
     list_filter = ["created_at"]
     search_fields = ["company_name", "customer__name"]
+    ordering = ["-created_at"]
 
     def customer_name(self, obj):
         return obj.customer.name if obj.customer else "—"
     customer_name.short_description = "Customer"
 
     def pdf_link(self, obj):
+        # Поддержка S3 и локального режима
+        if obj.pdf_url:
+            return format_html('<a href="{}" target="_blank">📄 View PDF</a>', obj.pdf_url)
         pdf_file_path = obj.get_pdf_path()
         if os.path.exists(pdf_file_path):
             url = reverse("download_pdf", args=[obj.id])
@@ -74,8 +79,12 @@ class InvoiceAdmin(admin.ModelAdmin):
         started = []
         for invoice in queryset:
             if invoice.items.exists():
-                generate_pdf.delay(invoice.id)
-                started.append(str(invoice.id))
+                try:
+                    result = generate_pdf.delay(invoice.id)
+                    started.append(str(invoice.id))
+                except Exception as e:
+                    logger.exception("❌ Error starting PDF task")
+                    self.message_user(request, f"❌ Error for Invoice #{invoice.id}: {e}", level="error")
         self.message_user(
             request,
             f"{len(started)} PDF task(s) started. Invoices: {', '.join(started)}"
@@ -98,6 +107,7 @@ class TaskStatusAdmin(admin.ModelAdmin):
     list_filter = ["status", "created_at"]
     search_fields = ["task_id", "invoice__company_name", "invoice__customer__name"]
     readonly_fields = ["error_message", "heartbeat_at"]
+    ordering = ["-created_at"]
 
     def invoice_link(self, obj):
         url = reverse("admin:api_invoice_change", args=[obj.invoice.id])

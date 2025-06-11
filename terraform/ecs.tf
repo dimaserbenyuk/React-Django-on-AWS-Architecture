@@ -86,6 +86,7 @@ resource "aws_ecs_task_definition" "celery-worker" {
         { name = "SQS_QUEUE_NAME", value = "celery-prod-queue.fifo" },
         { name = "AWS_CELERY_ROLE_ARN", value = aws_iam_role.celery_worker_role.arn },
         { name = "DEBUG", value = "true" }, 
+        { name = "AWS_STORAGE_BUCKET_NAME", value = "django-invoice-d4aa5bee" },
         { name = "USE_S3", value = "TRUE" }
       ],
       secrets = [
