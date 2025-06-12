@@ -56,3 +56,8 @@ EXPOSE 8000
 ENTRYPOINT ["/entrypoint.sh"]
 
 # CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+# CMD ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers=3", "--threads=2", "--timeout=120", "--log-level=debug"]
+
+
+# DJANGO_SETTINGS_MODULE=backend.settings.dev DJANGO_ENV=dev gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers=2 --reload --log-level=debug

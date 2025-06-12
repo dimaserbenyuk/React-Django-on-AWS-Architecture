@@ -23,7 +23,7 @@ resource "aws_ecs_task_definition" "django-worker" {
       name         = "django"
       image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
       essential    = true
-      command      = ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+      command      = ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers=3", "--threads=2", "--timeout=120", "--log-level=info"]
       portMappings = [{ containerPort = 8000, protocol = "tcp" }]
       environment = [
         { name = "DJANGO_ENV", value = "prod" },
