@@ -213,7 +213,23 @@ jobs:
             --output text)
           echo "TASK_ARN=$TASK_ARN" >> $GITHUB_ENV
 
-      - name: Wait for ECS Task to complete and fetch logs
+      - name: Wait for ECS Task to stop
+        run: |
+          echo "⏳ Waiting for ECS task to finish..."
+          for i in {1..30}; do
+            STATUS=$(aws ecs describe-tasks \
+              --cluster django-cluster \
+              --tasks $TASK_ARN \
+              --query 'tasks[0].lastStatus' \
+              --output text)
+            echo "Status: $STATUS"
+            if [ "$STATUS" = "STOPPED" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+      - name: Task to complete and fetch logs
         run: |
           echo "📦 Saving logs to logs/migrations.log..."
           mkdir -p logs
