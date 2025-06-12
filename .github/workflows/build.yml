@@ -213,50 +213,42 @@ jobs:
             --output text)
           echo "TASK_ARN=$TASK_ARN" >> $GITHUB_ENV
 
-      - name: Wait for ECS Task to complete
+      - name: Wait for ECS Task to complete and fetch exit code
         run: |
-          echo "Waiting for ECS task to stop..."
-          for i in {1..30}; do
+          for i in {1..20}; do
             STATUS=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].lastStatus' --output text)
-            echo "Status: $STATUS"
-            [[ "$STATUS" == "STOPPED" ]] && break
-            sleep 5
+            EXIT_CODE=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].containers[0].exitCode' --output text)
+            echo "Status: $STATUS | Exit code: $EXIT_CODE"
+            if [ "$STATUS" == "STOPPED" ] && [ "$EXIT_CODE" != "null" ]; then
+              break
+            fi
+            sleep 2
           done
 
-      - name: Check task exit code
-        run: |
-          EXIT_CODE=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].containers[0].exitCode' --output text)
-          echo "Exit code: $EXIT_CODE"
           if [ "$EXIT_CODE" != "0" ]; then
             echo "::error ::Django migration failed with exit code $EXIT_CODE"
+          fi
+
+          echo "📦 Saving logs to logs/migrations.log..."
+          mkdir -p logs
+          TASK_ID=$(echo $TASK_ARN | awk -F'/' '{print $NF}')
+          LOG_STREAM_NAME="migrate/django-migrate/$TASK_ID"
+
+          aws logs get-log-events \
+            --log-group-name "/ecs/migrate" \
+            --log-stream-name "$LOG_STREAM_NAME" \
+            --region us-east-1 \
+            --limit 500 \
+            --output text | grep -v ^None > logs/migrations.log || echo "⚠️ No logs found"
+
+          echo "📄 ECS Logs Output:"
+          cat logs/migrations.log || true
+
+          if [ "$EXIT_CODE" != "0" ]; then
             exit 1
           fi
 
-      - name: Fetch logs from CloudWatch
-        run: |
-          TASK_ID=$(echo $TASK_ARN | awk -F'/' '{print $NF}')
-          LOG_STREAM_NAME="migrate/django/$TASK_ID"
-          echo "Fetching logs from: $LOG_STREAM_NAME"
-          aws logs get-log-events \
-            --log-group-name "/ecs/migrate" \
-            --log-stream-name "$LOG_STREAM_NAME" \
-            --region us-east-1 \
-            --limit 100 \
-            --output text | grep -v ^None || echo "⚠️ No logs found"
-
-      - name: Save showmigrations output to file
-        run: |
-          mkdir -p logs
-          TASK_ID=$(echo $TASK_ARN | awk -F'/' '{print $NF}')
-          LOG_STREAM_NAME="migrate/django/$TASK_ID"
-          aws logs get-log-events \
-            --log-group-name "/ecs/migrate" \
-            --log-stream-name "$LOG_STREAM_NAME" \
-            --region us-east-1 \
-            --limit 200 \
-            --output text | grep -v ^None > logs/migrations.log || echo "⚠️ No logs found"
-
-      - name: Upload migrations.log
+      - name: Upload ECS migration logs
         uses: actions/upload-artifact@v4
         with:
           name: django-migrations-log
