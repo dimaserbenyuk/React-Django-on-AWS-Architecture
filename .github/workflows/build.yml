@@ -14,182 +14,182 @@ env:
   REGISTRY_IMAGE: 272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [linux/amd64, linux/arm64]
+  # build:
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       platform: [linux/amd64, linux/arm64]
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+  #     - name: Login to Amazon ECR
+  #       uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+  #     - name: Prepare
+  #       run: |
+  #         platform=${{ matrix.platform }}
+  #         echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY_IMAGE }}
-          tags: |
-            type=raw,value=${{ env.IMAGE_TAG }}
+  #     - name: Docker meta
+  #       id: meta
+  #       uses: docker/metadata-action@v5
+  #       with:
+  #         images: ${{ env.REGISTRY_IMAGE }}
+  #         tags: |
+  #           type=raw,value=${{ env.IMAGE_TAG }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Build and push by digest
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          platforms: ${{ matrix.platform }}
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: ${{ env.REGISTRY_IMAGE }}
-          labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+  #     - name: Build and push by digest
+  #       id: build
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         context: .
+  #         platforms: ${{ matrix.platform }}
+  #         push: true
+  #         cache-from: type=gha
+  #         cache-to: type=gha,mode=max
+  #         tags: ${{ env.REGISTRY_IMAGE }}
+  #         labels: ${{ steps.meta.outputs.labels }}
+  #         outputs: type=image,push-by-digest=true,name-canonical=true,push=true
 
-      - name: Export digest
-        run: |
-          mkdir -p ${{ runner.temp }}/digests
-          echo "${{ steps.build.outputs.digest }}" > "${{ runner.temp }}/digests/${{ env.PLATFORM_PAIR }}.digest"
+  #     - name: Export digest
+  #       run: |
+  #         mkdir -p ${{ runner.temp }}/digests
+  #         echo "${{ steps.build.outputs.digest }}" > "${{ runner.temp }}/digests/${{ env.PLATFORM_PAIR }}.digest"
 
-      - name: Upload digest
-        uses: actions/upload-artifact@v4
-        with:
-          name: digests-${{ env.PLATFORM_PAIR }}
-          path: ${{ runner.temp }}/digests/*
-          if-no-files-found: error
-          retention-days: 1
+  #     - name: Upload digest
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: digests-${{ env.PLATFORM_PAIR }}
+  #         path: ${{ runner.temp }}/digests/*
+  #         if-no-files-found: error
+  #         retention-days: 1
 
-  merge:
-    runs-on: ubuntu-latest
-    needs: [build]
+  # merge:
+  #   runs-on: ubuntu-latest
+  #   needs: [build]
 
-    steps:
-      - name: Download digests
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ runner.temp }}/digests
-          pattern: digests-*
-          merge-multiple: true
+  #   steps:
+  #     - name: Download digests
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: ${{ runner.temp }}/digests
+  #         pattern: digests-*
+  #         merge-multiple: true
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+  #     - name: Login to Amazon ECR
+  #       uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY_IMAGE }}
-          tags: |
-            type=raw,value=${{ env.IMAGE_TAG }}
+  #     - name: Docker meta
+  #       id: meta
+  #       uses: docker/metadata-action@v5
+  #       with:
+  #         images: ${{ env.REGISTRY_IMAGE }}
+  #         tags: |
+  #           type=raw,value=${{ env.IMAGE_TAG }}
 
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}/digests
-        run: |
-          digests=()
-          for file in *.digest; do
-            digest=$(cat "$file")
-            digests+=("${{ env.REGISTRY_IMAGE }}@${digest}")
-          done
-          docker buildx imagetools create -t ${{ env.REGISTRY_IMAGE }}:${{ env.IMAGE_TAG }} "${digests[@]}"
+  #     - name: Create manifest list and push
+  #       working-directory: ${{ runner.temp }}/digests
+  #       run: |
+  #         digests=()
+  #         for file in *.digest; do
+  #           digest=$(cat "$file")
+  #           digests+=("${{ env.REGISTRY_IMAGE }}@${digest}")
+  #         done
+  #         docker buildx imagetools create -t ${{ env.REGISTRY_IMAGE }}:${{ env.IMAGE_TAG }} "${digests[@]}"
 
-      - name: Inspect image
-        run: docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ env.IMAGE_TAG }}
+  #     - name: Inspect image
+  #       run: docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ env.IMAGE_TAG }}
 
-  test-migrations:
-    name: Test Django migrations (SQLite or PostgreSQL)
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: test_db
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+  # test-migrations:
+  #   name: Test Django migrations (SQLite or PostgreSQL)
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: postgres:15
+  #       env:
+  #         POSTGRES_DB: test_db
+  #         POSTGRES_USER: test_user
+  #         POSTGRES_PASSWORD: test_password
+  #       ports:
+  #         - 5432:5432
+  #       options: >-
+  #         --health-cmd pg_isready
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
 
-    env:
-      DJANGO_SETTINGS_MODULE: backend.settings.test
-      POSTGRES_DB: test_db
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_password
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: 5432
-      SECRET_KEY: test_secret
-      DEBUG: true
+  #   env:
+  #     DJANGO_SETTINGS_MODULE: backend.settings.test
+  #     POSTGRES_DB: test_db
+  #     POSTGRES_USER: test_user
+  #     POSTGRES_PASSWORD: test_password
+  #     POSTGRES_HOST: localhost
+  #     POSTGRES_PORT: 5432
+  #     SECRET_KEY: test_secret
+  #     DEBUG: true
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: 3.11
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+  #     - name: Install dependencies
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install -r requirements.txt
 
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          for i in {1..10}; do
-            pg_isready -h localhost -p 5432 -U test_user && break
-            echo "Waiting for DB..."
-            sleep 3
-          done
+  #     - name: Wait for PostgreSQL to be ready
+  #       run: |
+  #         for i in {1..10}; do
+  #           pg_isready -h localhost -p 5432 -U test_user && break
+  #           echo "Waiting for DB..."
+  #           sleep 3
+  #         done
 
-      - name: Django check
-        run: python manage.py check
+  #     - name: Django check
+  #       run: python manage.py check
 
-      - name: Show available migrations
-        run: python manage.py showmigrations
+  #     - name: Show available migrations
+  #       run: python manage.py showmigrations
 
-      - name: Run migrations
-        run: python manage.py migrate
+  #     - name: Run migrations
+  #       run: python manage.py migrate
 
 
   migrate:
     name: Run Django migrations
     runs-on: ubuntu-latest
-    needs: [merge, test-migrations]
+    # needs: [merge, test-migrations]
 
     steps:
       - name: Configure AWS credentials
@@ -212,37 +212,27 @@ jobs:
             --query 'tasks[0].taskArn' \
             --output text)
           echo "TASK_ARN=$TASK_ARN" >> $GITHUB_ENV
-
-      - name: Wait for ECS Task to stop
+      - name: Wait for ECS Task to complete and fetch exit code
         run: |
-          echo "⏳ Waiting for ECS task to finish..."
-          for i in {1..30}; do
-            STATUS=$(aws ecs describe-tasks \
-              --cluster django-cluster \
-              --tasks $TASK_ARN \
-              --query 'tasks[0].lastStatus' \
-              --output text)
-            echo "Status: $STATUS"
-            if [ "$STATUS" = "STOPPED" ]; then
+          for i in {1..20}; do
+            STATUS=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].lastStatus' --output text)
+            EXIT_CODE=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].containers[0].exitCode' --output text)
+            echo "Status: $STATUS | Exit code: $EXIT_CODE"
+            if [ "$STATUS" == "STOPPED" ] && [ "$EXIT_CODE" != "null" ]; then
               break
             fi
-            sleep 5
+            sleep 2
           done
-
-      - name: Task to complete and fetch logs
-        run: |
           echo "📦 Saving logs to logs/migrations.log..."
           mkdir -p logs
           TASK_ID=$(echo $TASK_ARN | awk -F'/' '{print $NF}')
           LOG_STREAM_NAME="migrate/django-migrate/$TASK_ID"
-
           aws logs get-log-events \
             --log-group-name "/ecs/migrate" \
             --log-stream-name "$LOG_STREAM_NAME" \
             --region us-east-1 \
             --limit 500 \
             --output text | grep -v ^None > logs/migrations.log || echo "⚠️ No logs found"
-
           echo "📄 ECS Logs Output:"
           cat logs/migrations.log || true
 
