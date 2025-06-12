@@ -213,21 +213,23 @@ jobs:
             --output text)
           echo "TASK_ARN=$TASK_ARN" >> $GITHUB_ENV
 
-      - name: Wait for ECS Task to complete and fetch exit code
+      - name: Wait for ECS Task to complete and fetch logs
         run: |
-          for i in {1..20}; do
+          echo "Waiting for task to STOP and get exit code..."
+
+          # Ожидаем завершения
+          for i in {1..30}; do
             STATUS=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].lastStatus' --output text)
-            EXIT_CODE=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].containers[0].exitCode' --output text)
-            echo "Status: $STATUS | Exit code: $EXIT_CODE"
-            if [ "$STATUS" == "STOPPED" ] && [ "$EXIT_CODE" != "null" ]; then
+            echo "Status: $STATUS"
+            if [ "$STATUS" = "STOPPED" ]; then
               break
             fi
-            sleep 2
+            sleep 5
           done
 
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "::error ::Django migration failed with exit code $EXIT_CODE"
-          fi
+          # Получаем exitCode после того как task завершился
+          EXIT_CODE=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "Exit code: $EXIT_CODE"
 
           echo "📦 Saving logs to logs/migrations.log..."
           mkdir -p logs
@@ -244,7 +246,9 @@ jobs:
           echo "📄 ECS Logs Output:"
           cat logs/migrations.log || true
 
-          if [ "$EXIT_CODE" != "0" ]; then
+          # Финальная проверка
+          if [ "$EXIT_CODE" != "0" ] && [ "$EXIT_CODE" != "0" ]; then
+            echo "::error ::Django migration failed with exit code $EXIT_CODE"
             exit 1
           fi
 
