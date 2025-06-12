@@ -126,10 +126,70 @@ jobs:
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ env.IMAGE_TAG }}
 
+  test-migrations:
+    name: Test Django migrations (SQLite or PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SETTINGS_MODULE: backend.settings.test
+      POSTGRES_DB: test_db
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      SECRET_KEY: test_secret
+      DEBUG: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          for i in {1..10}; do
+            pg_isready -h localhost -p 5432 -U test_user && break
+            echo "Waiting for DB..."
+            sleep 3
+          done
+
+      - name: Django check
+        run: python manage.py check
+
+      - name: Show available migrations
+        run: python manage.py showmigrations
+
+      - name: Run migrations
+        run: python manage.py migrate
+
+
   migrate:
     name: Run Django migrations
     runs-on: ubuntu-latest
-    needs: [merge]
+    needs: [merge, test-migrations]
 
     steps:
       - name: Configure AWS credentials
@@ -140,14 +200,69 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Run Django migration task
+        id: run_migrate
         run: |
-          aws ecs run-task \
+          TASK_ARN=$(aws ecs run-task \
             --cluster django-cluster \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[subnet-03869355ecc3bb83b,subnet-040eec606c9f85a0f],securityGroups=[sg-0d33fb748416305ac],assignPublicIp=DISABLED}" \
             --task-definition django-migrate \
             --count 1 \
-            --started-by github-actions
+            --started-by github-actions \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          echo "TASK_ARN=$TASK_ARN" >> $GITHUB_ENV
+
+      - name: Wait for ECS Task to complete
+        run: |
+          echo "Waiting for ECS task to stop..."
+          for i in {1..30}; do
+            STATUS=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].lastStatus' --output text)
+            echo "Status: $STATUS"
+            [[ "$STATUS" == "STOPPED" ]] && break
+            sleep 5
+          done
+
+      - name: Check task exit code
+        run: |
+          EXIT_CODE=$(aws ecs describe-tasks --cluster django-cluster --tasks $TASK_ARN --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "Exit code: $EXIT_CODE"
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error ::Django migration failed with exit code $EXIT_CODE"
+            exit 1
+          fi
+
+      - name: Fetch logs from CloudWatch
+        run: |
+          TASK_ID=$(echo $TASK_ARN | awk -F'/' '{print $NF}')
+          LOG_STREAM_NAME="migrate/django/$TASK_ID"
+          echo "Fetching logs from: $LOG_STREAM_NAME"
+          aws logs get-log-events \
+            --log-group-name "/ecs/migrate" \
+            --log-stream-name "$LOG_STREAM_NAME" \
+            --region us-east-1 \
+            --limit 100 \
+            --output text | grep -v ^None || echo "⚠️ No logs found"
+
+      - name: Save showmigrations output to file
+        run: |
+          mkdir -p logs
+          TASK_ID=$(echo $TASK_ARN | awk -F'/' '{print $NF}')
+          LOG_STREAM_NAME="migrate/django/$TASK_ID"
+          aws logs get-log-events \
+            --log-group-name "/ecs/migrate" \
+            --log-stream-name "$LOG_STREAM_NAME" \
+            --region us-east-1 \
+            --limit 200 \
+            --output text | grep -v ^None > logs/migrations.log || echo "⚠️ No logs found"
+
+      - name: Upload migrations.log
+        uses: actions/upload-artifact@v4
+        with:
+          name: django-migrations-log
+          path: logs/migrations.log
+          retention-days: 7
+
 
 
   # nginx:
