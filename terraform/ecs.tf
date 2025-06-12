@@ -60,6 +60,51 @@ resource "aws_ecs_task_definition" "django-worker" {
   }
 }
 
+resource "aws_ecs_task_definition" "django_migrate" {
+  family                   = "django-migrate"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "512"
+  memory                   = "1024"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.celery_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name         = "django-migrate"
+      image        = "272509770066.dkr.ecr.us-east-1.amazonaws.com/django-backend:latest"
+      essential    = true
+      command      = ["python", "manage.py", "migrate"]
+      environment = [
+        { name = "DJANGO_ENV", value = "prod" },
+        { name = "DJANGO_SETTINGS_MODULE", value = "backend.settings.prod" },
+        { name = "DEBUG", value = "false" }
+      ],
+      secrets = [
+        { name = "SECRET_KEY", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/SECRET_KEY" },
+        { name = "POSTGRES_DB", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_DB" },
+        { name = "POSTGRES_USER", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_USER" },
+        { name = "POSTGRES_PASSWORD", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_PASSWORD" },
+        { name = "POSTGRES_HOST", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_HOST" },
+        { name = "POSTGRES_PORT", valueFrom = "arn:aws:ssm:us-east-1:${data.aws_caller_identity.current.account_id}:parameter/django/dev/POSTGRES_PORT" }
+      ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          awslogs-group         = "/ecs/migrate",
+          awslogs-region        = "us-east-1",
+          awslogs-stream-prefix = "migrate"
+        }
+      }
+    }
+  ])
+
+  tags = {
+    environment = "production"
+  }
+}
+
+
 ###
 
 resource "aws_ecs_task_definition" "celery-worker" {
@@ -225,6 +270,10 @@ resource "aws_cloudwatch_log_group" "nginx_log_group" {
   retention_in_days = 7
 }
 
+resource "aws_cloudwatch_log_group" "migrate_log_group" {
+  name              = "/ecs/migrate"
+  retention_in_days = 7
+}
 resource "aws_cloudwatch_log_group" "celery_log_group" {
   name              = "/ecs/celery"
   retention_in_days = 7
